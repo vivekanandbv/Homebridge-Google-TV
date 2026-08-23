@@ -36,7 +36,22 @@ export class MediaStateManager extends EventEmitter {
         this.adbState = state;
         this.emit('state_changed');
       });
-      this.adb.startPolling(3000); // 3 seconds adaptive polling
+            
+      if (this.remote.isPowerOn) {
+        this.adb.startPolling(3000);
+      }
+
+      this.remote.on('powered', (powered: boolean) => {
+        if (this.adb) {
+          if (powered) {
+            this.adb.startPolling(3000);
+          } else {
+            this.adb.stopPolling();
+            this.adbState = { playbackState: 'UNKNOWN' };
+            this.emit('state_changed');
+          }
+        }
+      });
     }
   }
     

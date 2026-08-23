@@ -11,6 +11,10 @@ export class AndroidTVClient extends EventEmitter {
   private options: any;
   private isPowerOnState = false;
 
+  public get isPowerOn(): boolean {
+    return this.isPowerOnState;
+  }
+
   constructor(ip: string, pairingCode?: string, cert?: any) {
     super();
     this.ip = ip;
