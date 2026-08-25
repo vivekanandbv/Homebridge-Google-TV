@@ -34,6 +34,7 @@ export class ADBClient extends EventEmitter {
   private pollingInterval: NodeJS.Timeout | null = null;
   private targetIdentifier: string | null = null;
   private log: (message: string, isError?: boolean) => void;
+  private lastAdbWarningTime: number = 0;
     
   constructor(ip: string, port: number = 43747, log?: (message: string, isError?: boolean) => void) {
     super();
@@ -73,8 +74,36 @@ export class ADBClient extends EventEmitter {
     }
     return null;
   }
+
+  private async checkAdbWorks(): Promise<boolean> {
+    try {
+      await execAsync(`${adbPath} version`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private logAdbMissingWarning() {
+    const now = Date.now();
+    if (now - this.lastAdbWarningTime > 60000) {
+      this.log(`ADB (Android Debug Bridge) is not installed or found on the system.
+Please install ADB manually to enable Android TV/Google TV control:
+- macOS (Homebrew): brew install android-platform-tools
+- Debian/Ubuntu:    sudo apt-get install android-tools-adb
+- Windows:          Download platform-tools from developer.android.com and add to PATH.`, true);
+      this.lastAdbWarningTime = now;
+    }
+  }
     
   async connect(): Promise<boolean> {
+    const adbAvailable = await this.checkAdbWorks();
+    if (!adbAvailable) {
+      this.isConnected = false;
+      this.logAdbMissingWarning();
+      return false;
+    }
+
     this.log(`Connecting to ${this.ip}...`);
     this.targetIdentifier = await this.findTargetIdentifier();
     if (this.targetIdentifier) {

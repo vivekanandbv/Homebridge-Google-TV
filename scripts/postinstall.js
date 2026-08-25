@@ -70,7 +70,15 @@ async function install() {
     console.log('ADB successfully installed locally in the plugin bin directory.');
   } catch (error) {
     console.error('Failed to install ADB automatically:', error.message);
-    console.log('The plugin will fall back to using the system-installed adb command.');
+    console.warn('\n================================================================');
+    console.warn('WARNING: ADB (Android Debug Bridge) installation was not completed.');
+    console.warn('The plugin will fall back to the system-installed adb command.');
+    console.warn('If you do not have ADB installed globally, please install it manually:');
+    console.warn('  - macOS (Homebrew): brew install android-platform-tools');
+    console.warn('  - Debian/Ubuntu:    sudo apt-get install android-tools-adb');
+    console.warn('  - Windows:          Download platform-tools from developer.android.com');
+    console.warn('                      and add the folder to your system PATH.');
+    console.warn('================================================================\n');
   }
 }
 
