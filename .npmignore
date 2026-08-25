@@ -1,6 +1,11 @@
 # Ignore source code
 src
 
+# ADB platform tools
+/bin/platform-tools/
+/bin/*.zip
+
+
 # ------------- Defaults ------------- #
 
 # gitHub actions

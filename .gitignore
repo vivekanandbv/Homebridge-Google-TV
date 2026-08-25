@@ -1,6 +1,11 @@
 # Ignore compiled code
 dist
 
+# ADB platform tools
+/bin/platform-tools/
+/bin/*.zip
+
+
 # ------------- Defaults ------------- #
 .DS_Store
 
