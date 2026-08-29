@@ -134,7 +134,7 @@
 <div id="step-remote-success" class="step">
   <div class="alert alert-success">
     <h4 class="alert-heading">✓ Remote Paired Successfully!</h4>
-    <p style="margin-top: 10px;">To enhance this TV with ADB (for application monitoring), please **Save and Restart Homebridge** first.</p>
+    <p style="margin-top: 10px;">To enhance this TV with ADB (for application monitoring), please **Restart Homebridge** first.</p>
     <p>Once Homebridge has restarted:</p>
     <ol>
       <li>Open this plugin configuration again.</li>
@@ -143,7 +143,7 @@
     </ol>
   </div>
   <div style="display: flex; gap: 8px; margin-top: 20px;">
-    <button class="btn btn-primary" onclick="finishSetup()" style="flex: 1.5;">Save and Close</button>
+    <button class="btn btn-primary" onclick="finishAndRestart()" style="flex: 1.5;">Save and Restart</button>
     <button class="btn btn-default" onclick="skipToAdb()" style="flex: 1;">Continue to ADB Anyway</button>
   </div>
 </div>
@@ -172,17 +172,21 @@
   </div>
   <div style="display: flex; gap: 8px; margin-top: 16px;">
     <button class="btn btn-primary" onclick="pairAdb()" id="btn-pair-adb" style="flex: 1.5;">Pair ADB</button>
-    <button class="btn btn-default" onclick="finishSetup()" style="flex: 1;">Skip ADB</button>
+    <button class="btn btn-default" onclick="finishAndRestart()" style="flex: 1;">Skip ADB & Restart</button>
   </div>
 </div>
 
 <!-- Step: Success -->
 <div id="step-success" class="step">
   <div class="alert alert-success">
-    <h4 class="alert-heading">Setup Complete!</h4>
-    <p>Your TV has been configured. Restart Homebridge to apply changes.</p>
+    <h4 class="alert-heading">✓ Setup Complete!</h4>
+    <p style="margin-top: 10px;">Your TV settings have been saved successfully.</p>
+    <p>Would you like to restart Homebridge now to apply the changes?</p>
   </div>
-  <button class="btn btn-primary" onclick="showDashboard()">Return to Dashboard</button>
+  <div style="display: flex; gap: 8px; margin-top: 20px;">
+    <button class="btn btn-primary" id="btn-restart-now" onclick="triggerRestartNow()" style="flex: 1.5;">Restart Homebridge Now</button>
+    <button class="btn btn-default" onclick="closeSettingsOnly()" style="flex: 1;">Restart Later</button>
+  </div>
 </div>
 
 <script>
@@ -196,7 +200,10 @@
         const config = await homebridge.getPluginConfig();
         pluginConfig = config.length ? config : [{ name: 'ADBCast', platform: 'ADBCast' }];
 
-        allDevices = pluginConfig[0].devices || [];
+        if (!pluginConfig[0].devices) {
+            pluginConfig[0].devices = [];
+        }
+        allDevices = pluginConfig[0].devices;
         // If legacy root config exists, has a cert, and has an IP, convert it to a device
         if (allDevices.length === 0 && pluginConfig[0].cert && pluginConfig[0].ip) {
             allDevices.push({
@@ -549,9 +556,8 @@
           card.innerHTML = `
             <h4>${d.name || d.ip}</h4>
             <div class="tv-badges">
-              <span class="tv-badge ${d.cast ? 'ok' : ''}">Cast</span>
-              <span class="tv-badge ${d.remote ? 'ok' : ''}">Remote</span>
-              <span class="tv-badge ${d.adbConnect ? 'ok' : ''}">ADB</span>
+              <span class="tv-badge" style="background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.12);">Cast Protocol ${d.cast ? 'Detected' : 'Not Found'}</span>
+              <span class="tv-badge" style="background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.12);">Remote Protocol ${d.remote ? 'Detected' : 'Not Found'}</span>
             </div>
           `;
           card.onclick = () => selectDevice(d);
@@ -652,7 +658,7 @@
         let devConf = allDevices.find(d => d.ip === currentDevice.ip);
         devConf.adbIpPort = currentDevice.adbConnectEndpoint || `${currentDevice.ip}:5555`;
         await homebridge.updatePluginConfig(pluginConfig);
-        finishSetup();
+        finishAndRestart();
       } else {
         homebridge.toast.error(res.message, 'ADB Pairing Failed');
       }
@@ -663,9 +669,53 @@
     btn.disabled = false;
   }
 
-  async function finishSetup() {
+  async function finishAndRestart() {
+    // Automatically configure a child bridge if any device has ADB enabled
+    const hasAdb = allDevices.some(d => d.adbIpPort);
+    if (hasAdb && pluginConfig[0] && !pluginConfig[0]._bridge) {
+      const mac = '0E:' + Array.from({length: 5}, () => Math.floor(Math.random()*256).toString(16).padStart(2, '0').toUpperCase()).join(':');
+      const port = Math.floor(Math.random() * (55000 - 52000 + 1)) + 52000;
+      pluginConfig[0]._bridge = {
+        username: mac,
+        port: port,
+        name: "ADBCast Bridge",
+        model: "ADBCast Bridge",
+        manufacturer: "vivekanandbv"
+      };
+      homebridge.toast.info('Configured ADBCast to run as a Child Bridge for performance.', 'Child Bridge');
+    }
+
     await homebridge.updatePluginConfig(pluginConfig);
-    homebridge.closePluginConfig();
+    await homebridge.savePluginConfig();
+    
+    // Read the auth token from the browser storage (same-origin iframe share)
+    const token = window.localStorage.getItem('token') || 
+                  window.sessionStorage.getItem('token') || 
+                  window.localStorage.getItem('hbx-auth-token') || 
+                  window.sessionStorage.getItem('hbx-auth-token') ||
+                  (window.parent && window.parent.localStorage.getItem('token'));
+
+    // Trigger the restart in the background (non-blocking)
+    if (token) {
+        fetch('/api/status/restart', {
+            method: 'POST',
+            headers: {
+                'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        }).catch((e) => {
+            console.error('API Restart failed, falling back to process exit:', e);
+            homebridge.request('/restart-homebridge').catch(() => {});
+        });
+    } else {
+        homebridge.request('/restart-homebridge').catch(() => {});
+    }
+
+
+
+    setTimeout(() => {
+        homebridge.closeSettings();
+    }, 1500);
   }
 
   // Initialize

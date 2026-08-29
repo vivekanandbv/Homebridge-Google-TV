@@ -10,7 +10,7 @@ const execAsync = promisify(exec);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Resolve adb path, prioritizing locally downloaded adb
-let adbPath = 'adb';
+export let adbPath = 'adb';
 const localAdb = join(__dirname, '..', '..', 'bin', 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
 
 if (existsSync(localAdb)) {
@@ -30,9 +30,9 @@ export class ADBClient extends EventEmitter {
   public ip: string;
   public port: number;
   private endpoint: string;
-  private isConnected: boolean = false;
+  public isConnected: boolean = false;
   private pollingInterval: NodeJS.Timeout | null = null;
-  private targetIdentifier: string | null = null;
+  public targetIdentifier: string | null = null;
   private log: (message: string, isError?: boolean) => void;
   private lastAdbWarningTime: number = 0;
     

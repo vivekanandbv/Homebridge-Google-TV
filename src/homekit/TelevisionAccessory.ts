@@ -3,7 +3,7 @@ import { Service, PlatformAccessory } from 'homebridge';
 import { ADBCastPlatform } from '../platform.js';
 import { CastClient } from '../cast/CastClient.js';
 import { AndroidTVClient } from '../cast/AndroidTVClient.js';
-import { ADBClient } from '../cast/ADBClient.js';
+import { ADBClient, adbPath } from '../cast/ADBClient.js';
 import { MediaStateManager } from '../cast/MediaStateManager.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -264,12 +264,11 @@ export class TelevisionAccessory {
         return;
       }
       
-      if (this.adbClient) {
-        const { stdout } = await execAsync('adb devices');
-        if (stdout.includes(this.tvAccessory.context.device.ip)) {
-          this.platform.log.info(`[TV Input] Launching app ${inputName} (${target.package}) over ADB`);
-          await execAsync(`adb -s ${this.tvAccessory.context.device.ip}:5555 shell monkey -p ${target.package} -c android.intent.category.LAUNCHER 1`);
-        }
+      if (this.adbClient && this.adbClient.isConnected && this.adbClient.targetIdentifier) {
+        this.platform.log.info(`[TV Input] Launching app ${inputName} (${target.package}) over ADB`);
+        await execAsync(`${adbPath} -s ${this.adbClient.targetIdentifier} shell monkey -p ${target.package} -c android.intent.category.LEANBACK_LAUNCHER 1`);
+      } else {
+        this.platform.log.warn(`[TV Input] ADB not connected, cannot launch ${inputName}`);
       }
     } catch (e: any) {
       this.platform.log.error(`[TV Input] Failed to launch app ${inputName}: ${e.message}`);

@@ -81,7 +81,7 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
     const displayName = device.name || 'Google TV';
 
     // 1. Setup the TV Accessory (External)
-    const tvUuid = this.api.hap.uuid.generate(deviceId + '_tv_v2');
+    const tvUuid = this.api.hap.uuid.generate(deviceId + '_tv_v4');
     const tvAccessory = new this.api.platformAccessory(displayName, tvUuid, this.api.hap.Categories.TELEVISION);
     tvAccessory.context.device = { id: deviceId, name: displayName, ip: device.ip };
 
@@ -117,7 +117,7 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
     }
     this.activeDevicesByIp.add(device.ip);
 
-    const uuid = this.api.hap.uuid.generate(device.id + '_tv_v2');
+    const uuid = this.api.hap.uuid.generate(device.id + '_tv_v4');
     const displayName = device.name;
     this.log.info('Publishing newly discovered accessory as a Television:', displayName);
     const tvAccessory = new this.api.platformAccessory(displayName, uuid, this.api.hap.Categories.TELEVISION);
