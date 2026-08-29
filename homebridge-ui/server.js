@@ -17,7 +17,7 @@ async function getAdbPath() {
     localAdb,
     '/opt/homebrew/bin/adb',
     '/usr/local/bin/adb',
-    'adb',
+    'adb'
   ];
   for (const p of paths) {
     try {
@@ -59,14 +59,10 @@ class PluginUiServer extends HomebridgePluginUiServer {
     try {
       const adb = await getAdbPath();
       if (ip) {
-        try {
-          await execAsync(`${adb} disconnect ${ip}`); 
-        } catch (e) { /* ignore */ }
+        try { await execAsync(`${adb} disconnect ${ip}`); } catch (e) { /* ignore */ }
       }
       if (adbIpPort) {
-        try {
-          await execAsync(`${adb} disconnect ${adbIpPort}`); 
-        } catch (e) { /* ignore */ }
+        try { await execAsync(`${adb} disconnect ${adbIpPort}`); } catch (e) { /* ignore */ }
       }
       return { success: true };
     } catch (e) {
@@ -117,44 +113,39 @@ class PluginUiServer extends HomebridgePluginUiServer {
       const devices = {};
       
       const addDevice = (s, type) => {
-        if (!s || !s.addresses || s.addresses.length === 0) {
-          return;
-        }
-        const ip = s.addresses[0];
-        if (!ip) {
-          return;
-        }
+        if (!s || !s.addresses || s.addresses.length === 0) return;
+        // Prioritize IPv4 address to prevent separate IPv4/IPv6 cards for the same TV
+        const ip = s.addresses.find(addr => addr.includes('.')) || s.addresses[0];
+        if (!ip) return;
 
-        if (!devices[ip]) {
-          devices[ip] = { ip, cast: false, remote: false, adbPairing: false, adbConnect: false };
-        }
+        if (!devices[ip]) devices[ip] = { ip, cast: false, remote: false, adbPairing: false, adbConnect: false };
         
         let friendlyName = null;
         if (s.txt && s.txt.fn) {
-          friendlyName = typeof s.txt.fn === 'string' ? s.txt.fn : s.txt.fn.toString();
+            friendlyName = typeof s.txt.fn === 'string' ? s.txt.fn : s.txt.fn.toString();
         } else if (s.name) {
-          // Strip the 32-character hex suffix from name if it matches Cast suffix pattern
-          friendlyName = s.name.replace(/-[a-fA-F0-9]{32}$/, '').replace(/_/g, ' ');
+            // Strip the 32-character hex suffix from name if it matches Cast suffix pattern
+            friendlyName = s.name.replace(/-[a-fA-F0-9]{32}$/, '').replace(/_/g, ' ');
         }
 
         // Set or refine the friendly name
         if (friendlyName && (!devices[ip].name || devices[ip].name.match(/[a-fA-F0-9]{32}/))) {
-          devices[ip].name = friendlyName;
+            devices[ip].name = friendlyName;
         }
 
         if (type === 'cast') {
-          devices[ip].cast = true;
+            devices[ip].cast = true;
         }
         if (type === 'remote') {
-          devices[ip].remote = true;
+            devices[ip].remote = true;
         }
         if (type === 'adb-pairing') {
-          devices[ip].adbPairing = true;
-          devices[ip].adbPairingEndpoint = `${ip}:${s.port}`;
+            devices[ip].adbPairing = true;
+            devices[ip].adbPairingEndpoint = `${ip}:${s.port}`;
         }
         if (type === 'adb-connect') {
-          devices[ip].adbConnect = true;
-          devices[ip].adbConnectEndpoint = `${ip}:${s.port}`;
+            devices[ip].adbConnect = true;
+            devices[ip].adbConnectEndpoint = `${ip}:${s.port}`;
         }
       };
 
@@ -198,26 +189,26 @@ class PluginUiServer extends HomebridgePluginUiServer {
     return new Promise((resolve) => {
       try {
         const remote = new androidtvRemote.AndroidRemote(ip, {
-          pairing_port: 6467,
-          remote_port: 6466,
-          name: 'homebridge-adb-cast',
-          cert: {},
+            pairing_port: 6467,
+            remote_port: 6466,
+            name: 'homebridge-adb-cast',
+            cert: {}
         });
 
         this.currentRemote = remote;
 
         remote.on('secret', () => {
-          resolve({ success: true });
+            resolve({ success: true });
         });
 
         remote.on('error', (err) => {
-          this.currentRemote = null;
-          resolve({ success: false, message: err.toString() });
+            this.currentRemote = null;
+            resolve({ success: false, message: err.toString() });
         });
 
         remote.start().catch((err) => {
-          this.currentRemote = null;
-          resolve({ success: false, message: err.toString() });
+            this.currentRemote = null;
+            resolve({ success: false, message: err.toString() });
         });
       } catch (e) {
         this.currentRemote = null;
@@ -237,26 +228,26 @@ class PluginUiServer extends HomebridgePluginUiServer {
       this.currentRemote.removeAllListeners('error');
 
       this.currentRemote.on('ready', () => {
-        const cert = this.currentRemote.getCertificate();
-        this.currentRemote.stop();
-        this.currentRemote = null;
-        resolve({ success: true, cert });
+          const cert = this.currentRemote.getCertificate();
+          this.currentRemote.stop();
+          this.currentRemote = null;
+          resolve({ success: true, cert });
       });
 
       this.currentRemote.on('error', (err) => {
-        this.currentRemote.stop();
-        this.currentRemote = null;
-        resolve({ success: false, message: err.toString() });
+          this.currentRemote.stop();
+          this.currentRemote = null;
+          resolve({ success: false, message: err.toString() });
       });
 
       try {
-        this.currentRemote.sendCode(code);
+          this.currentRemote.sendCode(code);
       } catch (e) {
-        if (this.currentRemote) {
-          this.currentRemote.stop();
-          this.currentRemote = null;
-        }
-        resolve({ success: false, message: e.message });
+          if (this.currentRemote) {
+              this.currentRemote.stop();
+              this.currentRemote = null;
+          }
+          resolve({ success: false, message: e.message });
       }
     });
   }
