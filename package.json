@@ -34,8 +34,7 @@
     "@foxxmd/chromecast-client": "^1.0.4",
     "@homebridge/plugin-ui-utils": "^2.2.5",
     "androidtv-remote": "^1.0.10",
-    "bonjour-service": "^1.4.4",
-    "homebridge-lib": "^8.0.1"
+    "bonjour-service": "^1.4.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
