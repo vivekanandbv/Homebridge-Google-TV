@@ -665,8 +665,7 @@
 
   async function finishSetup() {
     await homebridge.updatePluginConfig(pluginConfig);
-    homebridge.savePluginConfig();
-    showStep('step-success');
+    homebridge.closePluginConfig();
   }
 
   // Initialize
