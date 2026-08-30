@@ -4,7 +4,9 @@
   "type": "module",
   "version": "1.0.0",
   "description": "Homebridge plugin to add, remote control and sync playback status of google/android TVs in home app.",
-  "author": "vivekanandbv",
+  "author": {
+    "name": "Vivekanand BV"
+  },
   "license": "Apache-2.0",
   "homepage": "https://github.com/vivekanandbv/Homebridge-ADB-Cast#readme",
   "repository": {
