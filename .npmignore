@@ -6,3 +6,13 @@ node_modules/
 .idea/
 tsconfig.json
 eslint.config.js
+
+bin/platform-tools/
+*.tgz
+
+.agents/
+.vscode/
+development_history.md
+nodemon.json
+test-cast.ts
+test/

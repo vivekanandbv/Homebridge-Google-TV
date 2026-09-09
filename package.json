@@ -1,5 +1,5 @@
 {
-  "name": "homebridge-adb-cast",
+  "name": "homebridge-google-tv",
   "displayName": "Homebridge-ADB-Cast",
   "type": "module",
   "version": "1.0.0",
@@ -11,7 +11,7 @@
   "homepage": "https://github.com/vivekanandbv/Homebridge-ADB-Cast#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vivekanandbv/Homebridge-ADB-Cast.git"
+    "url": "git+https://github.com/vivekanandbv/Homebridge-ADB-Cast.git"
   },
   "bugs": {
     "url": "https://github.com/vivekanandbv/Homebridge-ADB-Cast/issues"

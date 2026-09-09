@@ -204,7 +204,7 @@ class PluginUiServer extends HomebridgePluginUiServer {
         const remote = new androidtvRemote.AndroidRemote(ip, {
           pairing_port: 6467,
           remote_port: 6466,
-          name: 'homebridge-adb-cast',
+          name: 'homebridge-google-tv',
           cert: {},
         });
 
