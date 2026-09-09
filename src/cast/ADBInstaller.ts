@@ -124,7 +124,7 @@ export async function installAdb(
 
     log('ADB successfully installed locally.');
     return true;
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (fs.existsSync(zipPath)) {
       try {
         fs.unlinkSync(zipPath);
@@ -133,7 +133,7 @@ export async function installAdb(
       }
     }
 
-    log(`Failed to install ADB automatically: ${error.message}`, true);
+    log(`Failed to install ADB automatically: ${error instanceof Error ? error.message : String(error)}`, true);
     return false;
   }
 }
