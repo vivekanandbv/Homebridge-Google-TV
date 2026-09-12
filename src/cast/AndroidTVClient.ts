@@ -29,7 +29,10 @@ export class AndroidTVClient extends EventEmitter {
     };
 
     this.remote = new AndroidRemote(this.ip, this.options);
+    this.bindRemoteEvents();
+  }
 
+  private bindRemoteEvents() {
     this.remote.on('secret', () => {
       this.emit('pairing_requested');
       if (this.pairingCode) {
@@ -55,9 +58,21 @@ export class AndroidTVClient extends EventEmitter {
     });
 
     this.remote.on('error', (err: any) => {
-      console.error('[AndroidTV] Error:', err);
+      // Don't log normal background connection errors to avoid spam
       this.emit('error', err);
     });
+  }
+
+  updateIp(newIp: string) {
+    if (this.ip === newIp) {
+      return;
+    }
+    this.ip = newIp;
+    this.disconnect();
+    
+    // Remote library doesn't expose host setter, so we recreate it
+    this.remote = new AndroidRemote(this.ip, this.options);
+    this.bindRemoteEvents();
   }
 
   async connect() {

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-09-12
+
+### Added
+- **Auto-Healing Connections (Dynamic IP Tracking)**: The plugin now intelligently tracks the TV's permanent hardware ID. If the TV's IP address changes, the plugin instantly detects it, silently updates its own configuration in the background, and reconnects automatically. You never have to touch the Homebridge UI!
+- **Automatic ADB Port Discovery**: The plugin's network scanner instantly detects newly randomized ADB ports over the air and seamlessly connects to it. (Note: Users still need to use their physical remote to toggle Wireless Debugging back ON if their router changes their IP, but once they do, the plugin handles the rest automatically!)
+
+### Fixed
+- **No More UI Freezes ("Scanning for TVs" Bug Fixed)**: Applied strict timeouts. The UI will now load instantly and never freeze, regardless of whether your TVs are online or completely dead.
+- **No More Duplicate "Ghost" TVs**: The network scanner is now much smarter and strictly prioritizes the primary IPv4 connection, completely eliminating duplicate TV discoveries on modern dual-stack routers.
+- **Massively Improved Homebridge Stability**: The plugin now features a polite 30-second cooldown. If a TV drops offline, it patiently waits before trying again, preventing lockups and ensuring Homebridge runs flawlessly for months without crashing.
+
 ## [1.0.4] - 2026-09-12
 ### Added
 - Added automatic TV background configuration to persist Wi-Fi connection during deep sleep.

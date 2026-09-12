@@ -576,7 +576,10 @@
     let devConf = allDevices.find(d => d.ip === device.ip);
     if (!devConf) {
       devConf = { name: device.name || 'Android TV', ip: device.ip };
+      if (device.id) devConf.id = device.id;
       allDevices.push(devConf);
+    } else {
+      if (device.id && !devConf.id) devConf.id = device.id;
     }
     if (devConf.cert) {
       skipToAdb();

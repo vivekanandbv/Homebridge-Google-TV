@@ -9,6 +9,7 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
   public readonly Characteristic: typeof Characteristic;
 
   public readonly accessories: Map<string, PlatformAccessory> = new Map();
+  public readonly tvAccessories: Map<string, TelevisionAccessory> = new Map();
   private discovery: DiscoveryEngine;
   private activeDevicesByIp: Set<string> = new Set();
 
@@ -62,6 +63,7 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
       }
 
       this.discovery.on('device_discovered', this.onDeviceDiscovered.bind(this));
+      this.discovery.on('device_updated', this.onDeviceUpdated.bind(this));
       this.discovery.start();
     });
   }
@@ -101,7 +103,8 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
       this.api.updatePlatformAccessories([bulbAccessory]);
     }
 
-    new TelevisionAccessory(this, tvAccessory, bulbAccessory, device.ip);
+    const tvAccObj = new TelevisionAccessory(this, tvAccessory, bulbAccessory, device.ip);
+    this.tvAccessories.set(deviceId, tvAccObj);
 
     try {
       this.api.publishExternalAccessories(PLUGIN_NAME, [tvAccessory]);
@@ -139,12 +142,24 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
       this.api.updatePlatformAccessories([bulbAccessory]);
     }
 
-    new TelevisionAccessory(this, tvAccessory, bulbAccessory, device.ip);
+    const tvAccObj = new TelevisionAccessory(this, tvAccessory, bulbAccessory, device.ip);
+    this.tvAccessories.set(device.id, tvAccObj);
 
     try {
       this.api.publishExternalAccessories(PLUGIN_NAME, [tvAccessory]);
     } catch (e) {
       this.log.error('Failed to publish external TV accessory:', e);
+    }
+  }
+
+  onDeviceUpdated(device: DiscoveredDevice) {
+    this.log.info(`[Platform] Device updated via mDNS: ${device.name} (IP: ${device.ip}, ADB Port: ${device.adbPort || 'N/A'})`);
+    
+    // Find if we have an active TelevisionAccessory for this device ID
+    const tvAcc = this.tvAccessories.get(device.id);
+    if (tvAcc) {
+      tvAcc.updateIpAndPort(device.ip, device.adbPort);
+      // Context changes are automatically saved by Homebridge to cachedAccessories
     }
   }
 }

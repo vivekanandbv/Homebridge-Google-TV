@@ -37,13 +37,14 @@ export interface ADBMediaState {
 export class ADBClient extends EventEmitter {
   public ip: string;
   public port: number;
-  private endpoint: string;
+  public endpoint: string;
   public isConnected: boolean = false;
   private pollingInterval: NodeJS.Timeout | null = null;
   public targetIdentifier: string | null = null;
   private log: (message: string, isError?: boolean) => void;
   private lastAdbWarningTime: number = 0;
   private adbInstallAttempted: boolean = false;
+  private lastConnectAttemptTime: number = 0;
 
   constructor(
     ip: string,
@@ -190,6 +191,12 @@ The plugin will continue without ADB until it becomes available.`,
   }
 
   async connect(): Promise<boolean> {
+    const now = Date.now();
+    if (now - this.lastConnectAttemptTime < 30000) {
+      return false; // Cooldown for 30 seconds to prevent ADB daemon lockup
+    }
+    this.lastConnectAttemptTime = now;
+
     const adbAvailable = await this.ensureAdbAvailable();
 
     if (!adbAvailable) {

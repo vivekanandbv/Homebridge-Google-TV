@@ -382,4 +382,35 @@ export class TelevisionAccessory {
       this.bulbService.updateCharacteristic(this.platform.Characteristic.On, mediaState.state === 'PLAYING');
     } catch (e) { /* ignore */ }
   }
+
+  getPreviousIp(): string {
+    return this.tvAccessory.context.device.ip;
+  }
+
+  updateIpAndPort(newIp: string, newAdbPort?: number) {
+    if (this.tvAccessory.context.device.ip === newIp && 
+        (!this.adbClient || !newAdbPort || this.adbClient.port === newAdbPort)) {
+      return; // No change
+    }
+    
+    this.platform.log.info(`[TelevisionAccessory] Hot-swapping IP/Port to ${newIp}:${newAdbPort || ''}`);
+    
+    // Update internal context
+    this.tvAccessory.context.device.ip = newIp;
+    this.bulbAccessory.context.device.ip = newIp;
+
+    // Update Clients
+    this.castClient.ip = newIp;
+    this.androidTVClient.updateIp(newIp);
+    if (this.adbClient) {
+      this.adbClient.ip = newIp;
+      if (newAdbPort) {
+        this.adbClient.port = newAdbPort;
+        this.adbClient.endpoint = `${newIp}:${newAdbPort}`;
+      }
+    }
+
+    // Try reconnecting
+    this.connect();
+  }
 }

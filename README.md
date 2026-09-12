@@ -51,6 +51,8 @@ Each configured TV exposes **two distinct tiles** in your Apple Home App:
 
 ## Setup & Pairing
 
+> **Note on Network Changes**: This plugin features **Dynamic IP Tracking**. If your router changes your TV's IP address, the plugin will seamlessly auto-detect the new IP using its permanent Cast ID and reconnect. However, **Android disables Wireless Debugging whenever your IP changes**. For the absolute best experience (to prevent you from having to manually toggle Wireless Debugging back on), **reserve a Static DHCP IP address for your TV in your router**.
+
 1. Go to the **Plugins** tab in Homebridge, find **Homebridge Google TV**, and click **Settings**.
 2. Wait for it to discover your TV or add it manually using its IP.
 3. Click **Pair Remote** and enter the 4-digit PIN displayed on your TV.

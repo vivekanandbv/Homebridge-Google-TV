@@ -21,7 +21,7 @@ async function getAdbPath() {
   ];
   for (const p of paths) {
     try {
-      await execAsync(`${p} --version`);
+      await execAsync(`${p} --version`, { timeout: 2000 });
       return p;
     } catch (e) { /* ignore */ }
   }
@@ -85,13 +85,13 @@ class PluginUiServer extends HomebridgePluginUiServer {
   async checkAdb() {
     try {
       const adb = await getAdbPath();
-      const { stdout } = await execAsync(`${adb} devices -l`);
+      const { stdout } = await execAsync(`${adb} devices -l`, { timeout: 3000 });
       const lines = stdout.split('\n').filter(l => l.includes('device ') && !l.startsWith('List'));
       if (lines.length > 0) {
         // Try to get the TV's IP address via adb shell
         let ip = null;
         try {
-          const { stdout: ipOut } = await execAsync(`${adb} shell ip route | grep src | awk '{print $9}'`);
+          const { stdout: ipOut } = await execAsync(`${adb} shell ip route | grep src | awk '{print $9}'`, { timeout: 3000 });
           ip = ipOut.trim();
         } catch (e) { /* ignore */ }
         
@@ -130,7 +130,7 @@ class PluginUiServer extends HomebridgePluginUiServer {
         }
 
         if (!devices[ip]) {
-          devices[ip] = { ip, cast: false, remote: false, adbPairing: false, adbConnect: false };
+          devices[ip] = { ip, id: null, cast: false, remote: false, adbPairing: false, adbConnect: false };
         }
         
         let friendlyName = null;
@@ -144,6 +144,10 @@ class PluginUiServer extends HomebridgePluginUiServer {
         // Set or refine the friendly name
         if (friendlyName && (!devices[ip].name || devices[ip].name.match(/[a-fA-F0-9]{32}/))) {
           devices[ip].name = friendlyName;
+        }
+
+        if (s.txt && s.txt.id) {
+          devices[ip].id = s.txt.id;
         }
 
         if (type === 'cast') {
