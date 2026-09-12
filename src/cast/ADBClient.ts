@@ -178,7 +178,9 @@ The plugin will continue without ADB until it becomes available.`,
   }
 
   private async configureNetworkStandby() {
-    if (!this.targetIdentifier) return;
+    if (!this.targetIdentifier) {
+      return;
+    }
     try {
       this.log('Silently configuring TV to keep Wi-Fi awake during sleep...');
       await execAsync(`${adbPath} -s ${this.targetIdentifier} shell settings put global wifi_sleep_policy 2`);
