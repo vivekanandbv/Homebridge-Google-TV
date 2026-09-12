@@ -44,6 +44,7 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
             this.api.hap.uuid.generate(device.ip + '_controls_v1'),
             this.api.hap.uuid.generate(deviceId + '_lightbulb_v2'),
             this.api.hap.uuid.generate(device.ip + '_lightbulb_v2'),
+            this.api.hap.uuid.generate(device.ip + '_static_volbulb_v1'),
           ];
           
           for (const oldUuid of oldUuids) {

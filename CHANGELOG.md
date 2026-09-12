@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-09-12
+
+### Fixed
+- **Orphaned Lightbulbs on Upgrade**: Fixed an issue where upgrading from 1.0.x to 1.1.x would leave behind an orphaned "Ghost" volume lightbulb accessory in Homebridge due to the new Dynamic UUID engine. The plugin now automatically unregisters the old cache.
+
 ## [1.1.0] - 2026-09-12
 
 ### Added
