@@ -177,6 +177,16 @@ The plugin will continue without ADB until it becomes available.`,
     }
   }
 
+  private async configureNetworkStandby() {
+    if (!this.targetIdentifier) return;
+    try {
+      this.log('Silently configuring TV to keep Wi-Fi awake during sleep...');
+      await execAsync(`${adbPath} -s ${this.targetIdentifier} shell settings put global wifi_sleep_policy 2`);
+    } catch (e: any) {
+      this.log(`Failed to configure network standby: ${e.message}`, true);
+    }
+  }
+
   async connect(): Promise<boolean> {
     const adbAvailable = await this.ensureAdbAvailable();
 
@@ -193,6 +203,7 @@ The plugin will continue without ADB until it becomes available.`,
     if (this.targetIdentifier) {
       this.log(`Found target identifier: ${this.targetIdentifier}`);
       this.isConnected = true;
+      await this.configureNetworkStandby();
       this.emit('connected');
       return true;
     }
@@ -210,6 +221,7 @@ The plugin will continue without ADB until it becomes available.`,
       ) {
         this.targetIdentifier = this.endpoint;
         this.isConnected = true;
+        await this.configureNetworkStandby();
         this.emit('connected');
         return true;
       }
