@@ -64,6 +64,15 @@ export class TelevisionAccessory {
     
     this.mediaStateManager = new MediaStateManager(this.castClient, this.androidTVClient, this.adbClient);
 
+    this.androidTVClient.on("error", (err) => {
+      this.platform.log.debug(`[AndroidTVClient] Background connection error: ${err.message}`);
+    });
+
+    this.castClient.on("error", (err) => {
+      this.platform.log.debug(`[CastClient] Background connection error: ${err.message}`);
+    });
+
+
     this.androidTVClient.on('ready', () => {
       this.platform.log.info(`[AndroidTV] Successfully paired and connected to ${ip}`);
     });
