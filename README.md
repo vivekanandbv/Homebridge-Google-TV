@@ -66,7 +66,8 @@ Each configured TV exposes **two distinct tiles** in your Apple Home App:
 
 6. Click **Enhance with ADB** and follow the onscreen instructions.
 7. Manually restart homebridge.
-8. Open your iOS **Home App** → **Add Accessory** → **More  options...**, select your dimmer bulb exposed as a bridge and enter the Homebridge Setup PIN configured on your Homebridge instance. (The dimmer will reflect the playback status and the volume level of your TV, which you can use for automations, like turning the lighs on/off when a movie is playing/paused or opening/ closing the blinds. You should also be able to use input sources from the TV accessory to switch between apps now.)
+8. Open your iOS **Home App** → **Add Accessory** → **More  options...**, select your dimmer bulb exposed as a bridge and enter the Homebridge Setup PIN configured on your Homebridge instance. 
+* The dimmer will reflect the playback status and the volume level of your TV, which you can use for automations, like turning the lights on/off or opening/closing the blinds based on whether the TV is playing or paused. You should also be able to use input sources from the TV accessory to switch between apps now.
 ---
 
 ## Managing TV Input Sources (UI Guide)
