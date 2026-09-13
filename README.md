@@ -53,14 +53,20 @@ Each configured TV exposes **two distinct tiles** in your Apple Home App:
 
 > **Note on Network Changes**: This plugin features **Dynamic IP Tracking**. If your router changes your TV's IP address, the plugin will seamlessly auto-detect the new IP using its permanent Cast ID and reconnect. However, **Android disables Wireless Debugging whenever your IP changes**. For the absolute best experience (to prevent you from having to manually toggle Wireless Debugging back on), **reserve a Static DHCP IP address for your TV in your router**.
 
+### Remote and TV pairing ###
+
 1. Go to the **Plugins** tab in Homebridge, find **Homebridge Google TV**, and click **Settings**.
 2. Wait for it to discover your TV or add it manually using its IP.
 3. Click **Pair Remote** and enter the 4-digit PIN displayed on your TV.
-4. Click **Enhance with ADB**, turn on Wireless Debugging on your TV, and enter the 6-digit pairing code.
-5. **Pairing with Apple Home**:
-   * Since the TV accessory is an unbridged external accessory, open your iOS **Home App** → **Add Accessory** → **More options...**, select your TV, and enter the Homebridge Setup PIN configured on your Homebridge instance.
-   * *Alternative (Recommended)*: Finish configuration, restart Homebridge, then go to **Plugins** → **Homebridge Google TV** → tap the **three dots** (options) icon on the plugin card → select **External Accessories**, and scan the displayed QR barcode directly with your iPhone camera.
+4. Click **save and restart** option and then manually restart homebridge
+5. Since the TV accessory is an unbridged external accessory, add the TV manually into home app:  
+      Open your iOS **Home App** → **Add Accessory** → **More  options...**, select your TV, and enter the Homebridge Setup PIN configured on your Homebridge instance. (You will be able to use the control centre remote now.)
 
+### Optional ADB pairing (to expose volume/playback status as a dimmer bulb in home app) ###
+
+6. Click **Enhance with ADB** and follow the onscreen instructions.
+7. Manually restart homebridge.
+8. Open your iOS **Home App** → **Add Accessory** → **More  options...**, select your dimmer bulb exposed as a bridge and enter the Homebridge Setup PIN configured on your Homebridge instance. (The dimmer will reflect the playback status and the volume level of your TV, which you can use for automations, like turning the lighs on/off when a movie is playing/paused or opening/ closing the blinds. You should also be able to use input sources from the TV accessory to switch between apps now.)
 ---
 
 ## Managing TV Input Sources (UI Guide)
