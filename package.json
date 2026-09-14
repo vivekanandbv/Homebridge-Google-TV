@@ -7,6 +7,10 @@
   "author": {
     "name": "Vivekanand BV"
   },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/vivekanandbv"
+  },
   "license": "Apache-2.0",
   "homepage": "https://github.com/vivekanandbv/Homebridge-Google-TV#readme",
   "repository": {

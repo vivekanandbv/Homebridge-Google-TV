@@ -28,7 +28,7 @@ Each configured TV exposes **two distinct tiles** in your Apple Home App:
 
 ### 1. The TV Tile (Unbridged External Accessory)
 
-* **Native TV UI**: Renders as a native Apple TV accessory. Tapping it opens the power toggle and the input selector.
+* **Native TV UI**: Renders as a native Apple compatible TV accessory. Tapping it opens the power toggle and opening it navigates into the input selector.
 * **Apple TV Remote Widget**: Integrates with the iOS Control Center Remote Widget. You can navigate the screen using directional arrows, select, back, home, and **adjust the TV volume using your iPhone's physical volume buttons**.
 * **Input Switching**: Preloaded with *Home*, *YouTube*, *Netflix*, and *Prime Video*. Selecting an app switches the TV input and opens it instantly.
 
