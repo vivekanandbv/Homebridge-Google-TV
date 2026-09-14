@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-09-14
+
+### Added
+- **Funding Options**: Added GitHub Sponsors support for the project.
+
+### Fixed
+- **Documentation**: Clarified instructions in the README regarding TV control behaviors.
+
 ## [1.1.1] - 2026-09-12
 
 ### Fixed
