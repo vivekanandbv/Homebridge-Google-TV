@@ -95,12 +95,16 @@ export class AndroidTVClient extends EventEmitter {
   async powerOn() {
     if (!this.isPowerOnState) {
       await this.sendKey(26); // KEYCODE_POWER (Toggle ON)
+      this.isPowerOnState = true;
+      this.emit('powered', true);
     }
   }
 
   async powerOff() {
     if (this.isPowerOnState) {
       await this.sendKey(26); // KEYCODE_POWER (Toggle OFF)
+      this.isPowerOnState = false;
+      this.emit('powered', false);
     }
   }
 

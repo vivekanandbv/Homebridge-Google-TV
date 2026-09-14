@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.3] - 2026-09-15
+
+### Fixed
+- **HomeKit UI Sync**: Fixed an issue where the TV power switch would bounce back to "On" in the Apple Home app immediately after being switched off due to asynchronous state propagation. Applied optimistic state updates for instantaneous UI feedback.
+
 ## [1.1.2] - 2026-09-14
 
 ### Added
