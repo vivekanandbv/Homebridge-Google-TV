@@ -72,7 +72,6 @@ export class TelevisionAccessory {
       this.platform.log.debug(`[CastClient] Background connection error: ${err.message}`);
     });
 
-
     this.androidTVClient.on('ready', () => {
       this.platform.log.info(`[AndroidTV] Successfully paired and connected to ${ip}`);
     });
@@ -83,25 +82,32 @@ export class TelevisionAccessory {
       this.tvService.updateCharacteristic(this.platform.Characteristic.Active, powered ? 1 : 0);
     });
 
+    const tvId = tvAccessory.context.device?.id || `ADBCast-${ip}`;
+    const bulbId = bulbAccessory.context.device?.id || `ADBCast-Vol-${ip}`;
+    const tvName = tvAccessory.context.device?.name || 'Google TV';
+    const bulbName = bulbAccessory.context.device?.name || `${tvName} Volume`;
+
     this.tvAccessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Google')
       .setCharacteristic(this.platform.Characteristic.Model, 'Chromecast HD TV')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, tvAccessory.context.device.id);
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, tvId);
 
     this.bulbAccessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Google')
       .setCharacteristic(this.platform.Characteristic.Model, 'Volume Dimmer Lightbulb')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, bulbAccessory.context.device.id);
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, bulbId);
 
     // 1. Setup primary Television Service on the TV Accessory
     this.tvService = this.tvAccessory.getService(this.platform.Service.Television)
-      || this.tvAccessory.addService(this.platform.Service.Television, tvAccessory.context.device.name);
+      || this.tvAccessory.addService(this.platform.Service.Television, tvName);
 
-    this.tvService.setCharacteristic(this.platform.Characteristic.ConfiguredName, tvAccessory.context.device.name);
+    this.tvService.setPrimaryService(true);
+    this.tvService.setCharacteristic(this.platform.Characteristic.ConfiguredName, tvName);
     this.tvService.setCharacteristic(
       this.platform.Characteristic.SleepDiscoveryMode,
       this.platform.Characteristic.SleepDiscoveryMode.ALWAYS_DISCOVERABLE,
     );
+    this.tvService.setCharacteristic(this.platform.Characteristic.ActiveIdentifier, 1);
 
     this.tvService.getCharacteristic(this.platform.Characteristic.Active)
       .onSet(async (value) => {
@@ -137,7 +143,7 @@ export class TelevisionAccessory {
 
     // 2. Setup Television Speaker Service (Volume UP/DOWN) on the TV Accessory
     this.speakerService = this.tvAccessory.getService(this.platform.Service.TelevisionSpeaker)
-      || this.tvAccessory.addService(this.platform.Service.TelevisionSpeaker, tvAccessory.context.device.name + ' Speaker');
+      || this.tvAccessory.addService(this.platform.Service.TelevisionSpeaker, `${tvName} Speaker`);
 
     this.speakerService
       .setCharacteristic(this.platform.Characteristic.Active, this.platform.Characteristic.Active.ACTIVE)
@@ -161,11 +167,14 @@ export class TelevisionAccessory {
         await this.androidTVClient.setMuted(value as boolean);
       });
 
+    // Link Speaker Service to the Primary Television Service
+    this.tvService.addLinkedService(this.speakerService);
+
     this.setupInputSources();
 
     // 3. Setup the volume/playback Lightbulb service on the Bulb Accessory
     this.bulbService = this.bulbAccessory.getService(this.platform.Service.Lightbulb)
-      || this.bulbAccessory.addService(this.platform.Service.Lightbulb, bulbAccessory.context.device.name);
+      || this.bulbAccessory.addService(this.platform.Service.Lightbulb, bulbName);
 
     this.bulbService.getCharacteristic(this.platform.Characteristic.On)
       .onSet(async (value) => {
@@ -188,7 +197,7 @@ export class TelevisionAccessory {
           if (vol && typeof vol.level === 'number') {
             return Math.round(vol.level * 100);
           }
-        } catch (e) { /* ignore */ }
+        } catch { /* ignore */ }
         return 0;
       });
 
@@ -198,7 +207,7 @@ export class TelevisionAccessory {
         const mediaState = this.mediaStateManager.getResolvedPlaybackState();
         this.platform.log.info(`[PlaybackState] Resolved: ${mediaState.state} (Source: ${mediaState.source})`);
         this.bulbService.updateCharacteristic(this.platform.Characteristic.On, mediaState.state === 'PLAYING');
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
     });
 
     this.connect().catch((err) => {
@@ -382,12 +391,12 @@ export class TelevisionAccessory {
       if (vol && typeof vol.level === 'number') {
         this.bulbService.updateCharacteristic(this.platform.Characteristic.Brightness, Math.round(vol.level * 100));
       }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
 
     try {
       const mediaState = this.mediaStateManager.getResolvedPlaybackState();
       this.bulbService.updateCharacteristic(this.platform.Characteristic.On, mediaState.state === 'PLAYING');
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
   }
 
   getPreviousIp(): string {

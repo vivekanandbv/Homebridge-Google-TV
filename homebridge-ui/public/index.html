@@ -179,13 +179,32 @@
 <!-- Step: Success -->
 <div id="step-success" class="step">
   <div class="alert alert-success">
-    <h4 class="alert-heading">✓ Setup Complete!</h4>
-    <p style="margin-top: 10px;">Your TV settings have been saved successfully.</p>
-    <p>Would you like to restart Homebridge now to apply the changes?</p>
+    <h4 class="alert-heading" style="margin-bottom: 12px;">✓ Setup Complete!</h4>
+    <p>Your TV settings have been saved and configured on the ADBCast Child Bridge.</p>
+    
+    <div style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 14px; margin: 16px 0; text-align: left;">
+      <div style="font-weight: 600; margin-bottom: 8px; color: #ffffff;">📱 Adding Accessories to the Apple Home App:</div>
+      
+      <div style="margin-bottom: 12px;">
+        <b>1. Playback Status / Volume Lightbulb (ADBCast Bridge):</b>
+        <p style="font-size: 13px; opacity: 0.9; margin: 4px 0 0 0;">
+          In Apple Home, tap <b>+</b> → <b>Add Accessory</b> → Scan the <b>ADBCast Bridge</b> QR code or tap <b>More options...</b> to pair the Child Bridge.
+        </p>
+      </div>
+
+      <div>
+        <b>2. Television Controls & Remote:</b>
+        <p style="font-size: 13px; opacity: 0.9; margin: 4px 0 0 0;">
+          In Apple Home, tap <b>+</b> → <b>Add Accessory</b> → tap <b>More options...</b> → select your TV (e.g. <b><span id="success-tv-name">Google TV</span></b>) under Nearby Accessories and enter your Homebridge PIN.
+        </p>
+      </div>
+    </div>
+
+    <p style="margin-bottom: 0;">Restart Homebridge to apply your changes and activate the child bridge and TV accessories.</p>
   </div>
   <div style="display: flex; gap: 8px; margin-top: 20px;">
     <button class="btn btn-primary" id="btn-restart-now" onclick="triggerRestartNow()" style="flex: 1.5;">Restart Homebridge Now</button>
-    <button class="btn btn-default" onclick="closeSettingsOnly()" style="flex: 1;">Restart Later</button>
+    <button class="btn btn-default" onclick="closeSettingsOnly()" style="flex: 1;">Close</button>
   </div>
 </div>
 
@@ -673,7 +692,7 @@
   }
 
   async function finishAndRestart() {
-    // Automatically configure a child bridge if any device has ADB enabled
+    // Ensure Child Bridge is configured for isolated lightbulb bridge
     const hasAdb = allDevices.some(d => d.adbIpPort);
     if (hasAdb && pluginConfig[0] && !pluginConfig[0]._bridge) {
       const mac = '0E:' + Array.from({length: 5}, () => Math.floor(Math.random()*256).toString(16).padStart(2, '0').toUpperCase()).join(':');
@@ -685,40 +704,58 @@
         model: "ADBCast Bridge",
         manufacturer: "vivekanandbv"
       };
-      homebridge.toast.info('Configured ADBCast to run as a Child Bridge for performance.', 'Child Bridge');
+      homebridge.toast.info('Configured ADBCast Child Bridge for isolated accessory bridging.', 'Child Bridge');
     }
 
     await homebridge.updatePluginConfig(pluginConfig);
     await homebridge.savePluginConfig();
     
-    // Read the auth token from the browser storage (same-origin iframe share)
+    if (currentDevice && currentDevice.name) {
+      const nameEl = document.getElementById('success-tv-name');
+      if (nameEl) nameEl.innerText = currentDevice.name;
+    }
+    showStep('step-success');
+  }
+
+  async function triggerRestartNow() {
+    const btn = document.getElementById('btn-restart-now');
+    if (btn) {
+      btn.innerText = 'Restarting Homebridge...';
+      btn.disabled = true;
+    }
+
+    await homebridge.updatePluginConfig(pluginConfig);
+    await homebridge.savePluginConfig();
+
     const token = window.localStorage.getItem('token') || 
                   window.sessionStorage.getItem('token') || 
                   window.localStorage.getItem('hbx-auth-token') || 
                   window.sessionStorage.getItem('hbx-auth-token') ||
                   (window.parent && window.parent.localStorage.getItem('token'));
 
-    // Trigger the restart in the background (non-blocking)
     if (token) {
-        fetch('/api/status/restart', {
-            method: 'POST',
-            headers: {
-                'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        }).catch((e) => {
-            console.error('API Restart failed, falling back to process exit:', e);
-            homebridge.request('/restart-homebridge').catch(() => {});
-        });
-    } else {
+      fetch('/api/status/restart', {
+        method: 'POST',
+        headers: {
+          'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }).catch((e) => {
+        console.error('API Restart failed, falling back to process exit:', e);
         homebridge.request('/restart-homebridge').catch(() => {});
+      });
+    } else {
+      homebridge.request('/restart-homebridge').catch(() => {});
     }
 
-
-
+    homebridge.toast.success('Homebridge is restarting...', 'Restarting');
     setTimeout(() => {
-        homebridge.closeSettings();
+      homebridge.closeSettings();
     }, 1500);
+  }
+
+  function closeSettingsOnly() {
+    homebridge.closeSettings();
   }
 
   // Initialize

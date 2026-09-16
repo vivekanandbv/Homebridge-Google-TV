@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4-beta.3] - 2026-09-17
+
+### Fixed
+- **HomeKit Accessory Visibility**: Removed unintended auto-injection of `_bridge` (Child Bridge) on ADB pairing which moved the plugin into an un-paired bridge state.
+- **Apple Home Setup Guidance**: Added explicit in-UI guidance explaining how to pair the Television External Accessory in the Apple Home app via **+** → **Add Accessory** → **More options...** with the Homebridge PIN.
+
 ## [1.1.4-beta.2] - 2026-09-17
 
 ### Fixed
