@@ -27,10 +27,15 @@ export function getLocalAdbPath(): string {
 
 export async function isAdbExecutable(cmdPath: string): Promise<boolean> {
   try {
-    await execAsync(`"${cmdPath}" --version`, { timeout: 3000 });
+    await execAsync(`"${cmdPath}" version`, { timeout: 3000 });
     return true;
   } catch {
-    return false;
+    try {
+      await execAsync(`"${cmdPath}" --version`, { timeout: 3000 });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -43,8 +48,12 @@ export async function tryContainerPackageInstall(log: (msg: string, isError?: bo
   if (fs.existsSync('/etc/alpine-release')) {
     try {
       log('Detected Alpine Linux container. Installing android-tools via apk...');
-      await execAsync('apk add --no-cache android-tools', { timeout: 30000 });
-      if (await isAdbExecutable('adb')) {
+      try {
+        await execAsync('sudo -n apk add --no-cache android-tools', { timeout: 30000 });
+      } catch {
+        await execAsync('apk add --no-cache android-tools', { timeout: 30000 });
+      }
+      if ((await isAdbExecutable('adb')) || (await isAdbExecutable('/usr/bin/adb'))) {
         log('Successfully installed android-tools (ADB) via apk.');
         return true;
       }
@@ -57,8 +66,18 @@ export async function tryContainerPackageInstall(log: (msg: string, isError?: bo
   if (fs.existsSync('/etc/debian_version')) {
     try {
       log('Detected Debian/Ubuntu container. Installing adb via apt-get...');
-      await execAsync('apt-get update -qq && (apt-get install -y -qq adb || apt-get install -y -qq android-tools-adb)', { timeout: 60000 });
-      if (await isAdbExecutable('adb')) {
+      try {
+        await execAsync(
+          'sudo -n apt-get update -qq && (sudo -n apt-get install -y -qq adb || sudo -n apt-get install -y -qq android-tools-adb)',
+          { timeout: 60000 },
+        );
+      } catch {
+        await execAsync(
+          'apt-get update -qq && (apt-get install -y -qq adb || apt-get install -y -qq android-tools-adb)',
+          { timeout: 60000 },
+        );
+      }
+      if ((await isAdbExecutable('adb')) || (await isAdbExecutable('/usr/bin/adb'))) {
         log('Successfully installed adb via apt-get.');
         return true;
       }
@@ -72,41 +91,69 @@ export async function tryContainerPackageInstall(log: (msg: string, isError?: bo
 
 async function downloadFile(url: string, dest: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(dest);
+    let file: fs.WriteStream;
+    try {
+      file = fs.createWriteStream(dest);
+    } catch (err) {
+      return reject(err);
+    }
 
-    https.get(url, (response) => {
-      if (response.statusCode === 302 || response.statusCode === 301) {
-        file.close();
-        fs.unlink(dest, () => {});
+    file.on('error', (err) => {
+      try {
+        if (fs.existsSync(dest)) {
+          fs.unlinkSync(dest);
+        }
+      } catch { /* ignore */ }
+      reject(err);
+    });
 
-        if (!response.headers.location) {
-          reject(new Error('Download redirect did not provide a location.'));
+    https
+      .get(url, (response) => {
+        if (response.statusCode === 302 || response.statusCode === 301) {
+          file.close();
+          try {
+            if (fs.existsSync(dest)) {
+              fs.unlinkSync(dest);
+            }
+          } catch { /* ignore */ }
+
+          if (!response.headers.location) {
+            reject(new Error('Download redirect did not provide a location.'));
+            return;
+          }
+
+          downloadFile(response.headers.location, dest)
+            .then(resolve)
+            .catch(reject);
           return;
         }
 
-        downloadFile(response.headers.location, dest)
-          .then(resolve)
-          .catch(reject);
-        return;
-      }
+        if (response.statusCode !== 200) {
+          file.close();
+          try {
+            if (fs.existsSync(dest)) {
+              fs.unlinkSync(dest);
+            }
+          } catch { /* ignore */ }
+          reject(new Error(`Download failed with HTTP ${response.statusCode}.`));
+          return;
+        }
 
-      if (response.statusCode !== 200) {
+        response.pipe(file);
+
+        file.on('finish', () => {
+          file.close(() => resolve());
+        });
+      })
+      .on('error', (error) => {
         file.close();
-        fs.unlink(dest, () => {});
-        reject(new Error(`Download failed with HTTP ${response.statusCode}.`));
-        return;
-      }
-
-      response.pipe(file);
-
-      file.on('finish', () => {
-        file.close(() => resolve());
+        try {
+          if (fs.existsSync(dest)) {
+            fs.unlinkSync(dest);
+          }
+        } catch { /* ignore */ }
+        reject(error);
       });
-    }).on('error', (error) => {
-      file.close();
-      fs.unlink(dest, () => {});
-      reject(error);
-    });
   });
 }
 
@@ -140,17 +187,16 @@ export async function installAdb(
   const adbPath = getLocalAdbPath();
   const binDir = path.dirname(path.dirname(adbPath));
 
-  if (fs.existsSync(adbPath) && await isAdbExecutable(adbPath)) {
+  if (fs.existsSync(adbPath) && (await isAdbExecutable(adbPath))) {
     return true;
   }
-
-  fs.mkdirSync(binDir, { recursive: true });
 
   const zipPath = path.join(binDir, 'platform-tools.zip');
 
   try {
-    log(`Downloading ADB for ${platform}...`);
+    fs.mkdirSync(binDir, { recursive: true });
 
+    log(`Downloading ADB for ${platform}...`);
     await downloadFile(url, zipPath);
 
     log('Download complete. Extracting files...');
@@ -164,15 +210,19 @@ export async function installAdb(
     }
 
     if (fs.existsSync(adbPath) && platform !== 'win32') {
-      fs.chmodSync(adbPath, 0o755);
+      try {
+        fs.chmodSync(adbPath, 0o755);
+      } catch { /* ignore chmod error if non-root */ }
     }
 
     if (fs.existsSync(zipPath)) {
-      fs.unlinkSync(zipPath);
+      try {
+        fs.unlinkSync(zipPath);
+      } catch { /* ignore */ }
     }
 
     if (!fs.existsSync(adbPath) || !(await isAdbExecutable(adbPath))) {
-      log('ADB download completed, but the binary is not executable on this architecture.', true);
+      log('ADB download completed, but the binary is not executable on this architecture/OS.', true);
       return false;
     }
 
@@ -182,9 +232,7 @@ export async function installAdb(
     if (fs.existsSync(zipPath)) {
       try {
         fs.unlinkSync(zipPath);
-      } catch {
-        // Ignore cleanup errors.
-      }
+      } catch { /* ignore */ }
     }
 
     log(`Failed to install ADB automatically: ${error instanceof Error ? error.message : String(error)}`, true);

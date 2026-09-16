@@ -2,16 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4-beta.2] - 2026-09-17
+
+### Fixed
+- **Child Bridge Crash Guard**: Added global rejection and exception handlers to the child bridge process to prevent unhandled errors from terminating the process (`Child bridge ended (code 1, signal null)`).
+- **Isolated ADB Media Polling**: Wrapped periodic ADB media polling in isolated exception handlers to eliminate unhandled promise rejections during background state refresh.
+- **Container Package Provisioning**: Added non-root `sudo -n` fallback when installing `android-tools` via `apk` (Alpine Linux) and `apt-get` (Debian/Ubuntu) in containerized environments like Synology DSM Container Manager.
+- **Safe Directory Operations**: Handled permissions errors (`EACCES`) gracefully during platform-tools directory initialization and stream file writing on restricted filesystems.
+- **mDNS Socket Guard**: Added error handlers to `Bonjour` service and discovery browsers to prevent unhandled multicast UDP socket errors in Docker containers.
+- **ADB Command Timeouts**: Added execution timeouts across all ADB discovery, connect, and media session commands to prevent daemon lockups from blocking the event loop.
+
 ## [1.1.4-beta.1] - 2026-09-16
 
 ### Fixed
 - **Child Bridge Stability**: Added direct `castv2` and `protobufjs` dependency declarations to prevent module resolution failures in child bridge processes.
 - **Safe Preloading**: Wrapped protobuf preloading in resilient exception handling so plugin startup never terminates prematurely.
-
-
-### Fixed
 - **Cast Protocol Stability**: Synchronously pre-load `cast_channel.proto` to eliminate the asynchronous `Error: extension not loaded yet` race condition during initial Cast client connection.
-- **Automated ADB Provisioning in Containers**: Automatically provision `android-tools` (ADB) inside Alpine Linux (Synology DSM Docker containers) and Debian/Ubuntu containers without requiring users to run terminal commands.
 - **Multi-Architecture Support**: Gracefully handle Linux ARM/AArch64 architectures and prevent incompatible x86_64 binary extraction.
 
 ## [1.1.3] - 2026-09-15

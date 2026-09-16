@@ -29,7 +29,11 @@ async function tryAutoInstallAdb() {
   if (existsSync('/etc/alpine-release')) {
     try {
       console.log('[ADBCast UI] Attempting to auto-install android-tools via apk...');
-      await execAsync('apk add --no-cache android-tools', { timeout: 30000 });
+      try {
+        await execAsync('sudo -n apk add --no-cache android-tools', { timeout: 30000 });
+      } catch {
+        await execAsync('apk add --no-cache android-tools', { timeout: 30000 });
+      }
     } catch (e) {
       console.error('[ADBCast UI] apk auto-install failed:', e.message);
     }
@@ -40,7 +44,17 @@ async function tryAutoInstallAdb() {
   if (existsSync('/etc/debian_version')) {
     try {
       console.log('[ADBCast UI] Attempting to auto-install adb via apt-get...');
-      await execAsync('apt-get update -qq && (apt-get install -y -qq adb || apt-get install -y -qq android-tools-adb)', { timeout: 60000 });
+      try {
+        await execAsync(
+          'sudo -n apt-get update -qq && (sudo -n apt-get install -y -qq adb || sudo -n apt-get install -y -qq android-tools-adb)',
+          { timeout: 60000 },
+        );
+      } catch {
+        await execAsync(
+          'apt-get update -qq && (apt-get install -y -qq adb || apt-get install -y -qq android-tools-adb)',
+          { timeout: 60000 },
+        );
+      }
     } catch (e) {
       console.error('[ADBCast UI] apt-get auto-install failed:', e.message);
     }

@@ -33,8 +33,12 @@ async function tryPackageManagers() {
   if (fs.existsSync('/etc/alpine-release')) {
     try {
       console.log('Alpine Linux container detected. Attempting to install android-tools via apk...');
-      await execAsync('apk add --no-cache android-tools', { timeout: 30000 });
-      if (await isAdbWorking('adb')) {
+      try {
+        await execAsync('sudo -n apk add --no-cache android-tools', { timeout: 30000 });
+      } catch {
+        await execAsync('apk add --no-cache android-tools', { timeout: 30000 });
+      }
+      if ((await isAdbWorking('adb')) || (await isAdbWorking('/usr/bin/adb'))) {
         console.log('ADB successfully installed via apk.');
         return true;
       }
@@ -47,11 +51,18 @@ async function tryPackageManagers() {
   if (fs.existsSync('/etc/debian_version')) {
     try {
       console.log('Debian/Ubuntu container detected. Attempting to install adb via apt-get...');
-      await execAsync(
-        'apt-get update -qq && (apt-get install -y -qq adb || apt-get install -y -qq android-tools-adb)',
-        { timeout: 60000 },
-      );
-      if (await isAdbWorking('adb')) {
+      try {
+        await execAsync(
+          'sudo -n apt-get update -qq && (sudo -n apt-get install -y -qq adb || sudo -n apt-get install -y -qq android-tools-adb)',
+          { timeout: 60000 },
+        );
+      } catch {
+        await execAsync(
+          'apt-get update -qq && (apt-get install -y -qq adb || apt-get install -y -qq android-tools-adb)',
+          { timeout: 60000 },
+        );
+      }
+      if ((await isAdbWorking('adb')) || (await isAdbWorking('/usr/bin/adb'))) {
         console.log('ADB successfully installed via apt-get.');
         return true;
       }

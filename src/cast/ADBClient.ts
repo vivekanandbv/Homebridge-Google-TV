@@ -3,19 +3,15 @@ import { EventEmitter } from 'events';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync } from 'fs';
-import { getLocalAdbPath, installAdb } from './ADBInstaller.js';
+import { getLocalAdbPath, installAdb, isAdbExecutable } from './ADBInstaller.js';
 
 const execAsync = promisify(exec);
 
-// Resolve ADB path, prioritizing the locally downloaded ADB.
+// Resolve ADB path, prioritizing verified working system ADB.
 export let adbPath = 'adb';
 const localAdb = getLocalAdbPath();
 
 function resolveAdbPath(): string {
-  if (existsSync(localAdb)) {
-    return localAdb;
-  }
-
   if (existsSync('/usr/bin/adb')) {
     return '/usr/bin/adb';
   }
@@ -28,7 +24,33 @@ function resolveAdbPath(): string {
     return '/opt/homebrew/bin/adb';
   }
 
+  if (existsSync(localAdb)) {
+    return localAdb;
+  }
+
   return 'adb';
+}
+
+export async function resolveWorkingAdbPath(): Promise<string> {
+  const candidates = [
+    '/usr/bin/adb',
+    '/usr/local/bin/adb',
+    '/opt/homebrew/bin/adb',
+    localAdb,
+    'adb',
+  ];
+
+  for (const p of candidates) {
+    if (p === 'adb' || existsSync(p)) {
+      if (await isAdbExecutable(p)) {
+        adbPath = p;
+        return p;
+      }
+    }
+  }
+
+  adbPath = resolveAdbPath();
+  return adbPath;
 }
 
 adbPath = resolveAdbPath();
@@ -66,7 +88,7 @@ export class ADBClient extends EventEmitter {
 
   private async findTargetIdentifier(): Promise<string | null> {
     try {
-      const { stdout } = await execAsync(`"${adbPath}" devices -l`);
+      const { stdout } = await execAsync(`"${adbPath}" devices -l`, { timeout: 4000 });
       const lines = stdout
         .split('\n')
         .filter((l) => l.includes('device ') && !l.startsWith('List'));
@@ -87,6 +109,7 @@ export class ADBClient extends EventEmitter {
         try {
           const { stdout: ipOut } = await execAsync(
             `"${adbPath}" -s ${id} shell ip route | grep src | awk '{print $9}'`,
+            { timeout: 3000 },
           );
 
           if (ipOut.trim() === this.ip) {
@@ -104,12 +127,7 @@ export class ADBClient extends EventEmitter {
   }
 
   private async checkAdbWorks(): Promise<boolean> {
-    try {
-      await execAsync(`"${adbPath}" version`);
-      return true;
-    } catch {
-      return false;
-    }
+    return await isAdbExecutable(adbPath);
   }
 
   /**
@@ -121,50 +139,55 @@ export class ADBClient extends EventEmitter {
    * 3. Automatically download bundled ADB / package manager install
    */
   private async ensureAdbAvailable(): Promise<boolean> {
-    // Refresh the path in case ADB was installed after module startup.
-    adbPath = resolveAdbPath();
+    try {
+      // Refresh the path in case ADB was installed after module startup.
+      adbPath = await resolveWorkingAdbPath();
 
-    if (await this.checkAdbWorks()) {
-      return true;
-    }
+      if (await this.checkAdbWorks()) {
+        return true;
+      }
 
-    // If we already attempted an automatic installation during this
-    // plugin instance, don't repeatedly download ADB.
-    if (this.adbInstallAttempted) {
+      // If we already attempted an automatic installation during this
+      // plugin instance, don't repeatedly download ADB.
+      if (this.adbInstallAttempted) {
+        return false;
+      }
+
+      this.adbInstallAttempted = true;
+
+      this.log(
+        'ADB was not found. Attempting to install or download Android Platform Tools automatically...',
+      );
+
+      const installed = await installAdb((message, isError) => {
+        this.log(message, isError);
+      });
+
+      if (!installed) {
+        return false;
+      }
+
+      // The installer has now placed ADB in the local plugin directory or installed via apk/apt.
+      // Resolve the path again and verify the executable.
+      adbPath = await resolveWorkingAdbPath();
+
+      const adbWorks = await this.checkAdbWorks();
+
+      if (adbWorks) {
+        this.log(`ADB is ready: ${adbPath}`);
+        return true;
+      }
+
+      this.log(
+        'ADB was installed/downloaded but could not be executed on this architecture.',
+        true,
+      );
+
+      return false;
+    } catch (e: any) {
+      this.log(`Error checking ADB availability: ${e.message}`, true);
       return false;
     }
-
-    this.adbInstallAttempted = true;
-
-    this.log(
-      'ADB was not found. Attempting to install or download Android Platform Tools automatically...',
-    );
-
-    const installed = await installAdb((message, isError) => {
-      this.log(message, isError);
-    });
-
-    if (!installed) {
-      return false;
-    }
-
-    // The installer has now placed ADB in the local plugin directory or installed via apk/apt.
-    // Resolve the path again and verify the executable.
-    adbPath = resolveAdbPath();
-
-    const adbWorks = await this.checkAdbWorks();
-
-    if (adbWorks) {
-      this.log(`ADB is ready: ${adbPath}`);
-      return true;
-    }
-
-    this.log(
-      'ADB was installed/downloaded but could not be executed on this architecture.',
-      true,
-    );
-
-    return false;
   }
 
   private logAdbMissingWarning() {
@@ -188,7 +211,7 @@ The plugin will continue without ADB until it becomes available.`,
     }
     try {
       this.log('Silently configuring TV to keep Wi-Fi awake during sleep...');
-      await execAsync(`"${adbPath}" -s ${this.targetIdentifier} shell settings put global wifi_sleep_policy 2`);
+      await execAsync(`"${adbPath}" -s ${this.targetIdentifier} shell settings put global wifi_sleep_policy 2`, { timeout: 4000 });
     } catch (e: any) {
       this.log(`Failed to configure network standby: ${e.message}`, true);
     }
@@ -201,31 +224,32 @@ The plugin will continue without ADB until it becomes available.`,
     }
     this.lastConnectAttemptTime = now;
 
-    const adbAvailable = await this.ensureAdbAvailable();
-
-    if (!adbAvailable) {
-      this.isConnected = false;
-      this.logAdbMissingWarning();
-      return false;
-    }
-
-    this.log(`Connecting to ${this.ip}...`);
-
-    this.targetIdentifier = await this.findTargetIdentifier();
-
-    if (this.targetIdentifier) {
-      this.log(`Found target identifier: ${this.targetIdentifier}`);
-      this.isConnected = true;
-      await this.configureNetworkStandby();
-      this.emit('connected');
-      return true;
-    }
-
     try {
+      const adbAvailable = await this.ensureAdbAvailable();
+
+      if (!adbAvailable) {
+        this.isConnected = false;
+        this.logAdbMissingWarning();
+        return false;
+      }
+
+      this.log(`Connecting to ${this.ip}...`);
+
+      this.targetIdentifier = await this.findTargetIdentifier();
+
+      if (this.targetIdentifier) {
+        this.log(`Found target identifier: ${this.targetIdentifier}`);
+        this.isConnected = true;
+        await this.configureNetworkStandby();
+        this.emit('connected');
+        return true;
+      }
+
       this.log(`Falling back to manual adb connect ${this.endpoint}`);
 
       const { stdout } = await execAsync(
         `"${adbPath}" connect ${this.endpoint}`,
+        { timeout: 8000 },
       );
 
       if (
@@ -266,6 +290,7 @@ The plugin will continue without ADB until it becomes available.`,
     try {
       const { stdout } = await execAsync(
         `"${adbPath}" pair ${pairingEndpoint} ${code}`,
+        { timeout: 10000 },
       );
 
       if (stdout.includes('Successfully paired')) {
@@ -279,19 +304,20 @@ The plugin will continue without ADB until it becomes available.`,
   }
 
   async getMediaState(): Promise<ADBMediaState> {
-    if (!this.isConnected) {
-      await this.connect();
-    }
-
-    if (!this.isConnected) {
-      return { playbackState: 'UNKNOWN' };
-    }
-
     try {
+      if (!this.isConnected) {
+        await this.connect();
+      }
+
+      if (!this.isConnected) {
+        return { playbackState: 'UNKNOWN' };
+      }
+
       const target = this.targetIdentifier || this.endpoint;
 
       const { stdout } = await execAsync(
         `"${adbPath}" -s ${target} shell dumpsys media_session`,
+        { timeout: 5000 },
       );
 
       const lines = stdout.split('\n');
@@ -392,8 +418,8 @@ The plugin will continue without ADB until it becomes available.`,
       };
     } catch (e: any) {
       if (
-        e.message.includes('not found') ||
-        e.message.includes('unauthorized')
+        e.message?.includes('not found') ||
+        e.message?.includes('unauthorized')
       ) {
         this.isConnected = false;
       }
@@ -408,8 +434,12 @@ The plugin will continue without ADB until it becomes available.`,
     this.stopPolling();
 
     this.pollingInterval = setInterval(async () => {
-      const state = await this.getMediaState();
-      this.emit('media_state', state);
+      try {
+        const state = await this.getMediaState();
+        this.emit('media_state', state);
+      } catch (err: any) {
+        this.log(`Error in ADB media polling: ${err?.message || err}`, true);
+      }
     }, intervalMs);
   }
 

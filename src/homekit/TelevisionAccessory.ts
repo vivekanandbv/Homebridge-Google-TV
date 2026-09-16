@@ -201,8 +201,14 @@ export class TelevisionAccessory {
       } catch (e) { /* ignore */ }
     });
 
-    this.connect();
-    setInterval(() => this.updateState(), 10000);
+    this.connect().catch((err) => {
+      this.platform.log.debug(`[TelevisionAccessory] Initial connect error: ${err?.message || err}`);
+    });
+    setInterval(() => {
+      this.updateState().catch((err) => {
+        this.platform.log.debug(`[TelevisionAccessory] updateState error: ${err?.message || err}`);
+      });
+    }, 10000);
   }
 
   private setupInputSources() {
@@ -275,7 +281,8 @@ export class TelevisionAccessory {
       
       if (this.adbClient && this.adbClient.isConnected && this.adbClient.targetIdentifier) {
         this.platform.log.info(`[TV Input] Launching app ${inputName} (${target.package}) over ADB`);
-        await execAsync(`${adbPath} -s ${this.adbClient.targetIdentifier} shell monkey -p ${target.package} -c android.intent.category.LEANBACK_LAUNCHER 1`);
+        const monkeyCmd = `"${adbPath}" -s ${this.adbClient.targetIdentifier} shell monkey -p ${target.package} -c android.intent.category.LEANBACK_LAUNCHER 1`;
+        await execAsync(monkeyCmd, { timeout: 5000 });
       } else {
         this.platform.log.warn(`[TV Input] ADB not connected, cannot launch ${inputName}`);
       }

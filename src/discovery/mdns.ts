@@ -21,27 +21,58 @@ export class DiscoveryEngine extends EventEmitter {
 
   constructor() {
     super();
-    this.bonjour = new Bonjour();
+    try {
+      this.bonjour = new Bonjour({}, (err: unknown) => {
+        console.warn('[DiscoveryEngine] Bonjour mDNS warning/error:', err instanceof Error ? err.message : String(err));
+      });
+      const internalServer = (this.bonjour as any).server;
+      if (internalServer && internalServer.mdns && typeof internalServer.mdns.on === 'function') {
+        internalServer.mdns.on('error', (err: unknown) => {
+          console.warn('[DiscoveryEngine] mDNS socket error ignored:', err instanceof Error ? err.message : String(err));
+        });
+      }
+    } catch (e: unknown) {
+      console.warn('[DiscoveryEngine] Failed to initialize Bonjour safely:', e instanceof Error ? e.message : String(e));
+      this.bonjour = new Bonjour();
+    }
   }
 
   start() {
-    this.browser = this.bonjour.find({ type: 'googlecast' });
-    this.browser.on('up', this.onServiceUp.bind(this));
-    this.browser.start();
+    try {
+      this.browser = this.bonjour.find({ type: 'googlecast' });
+      if (this.browser) {
+        this.browser.on('up', this.onServiceUp.bind(this));
+        this.browser.on('error', (err: unknown) => {
+          console.warn('[DiscoveryEngine] GoogleCast browser error:', err instanceof Error ? err.message : String(err));
+        });
+        this.browser.start();
+      }
 
-    this.adbBrowser = this.bonjour.find({ type: 'adb-tls-connect' });
-    this.adbBrowser.on('up', this.onAdbServiceUp.bind(this));
-    this.adbBrowser.start();
+      this.adbBrowser = this.bonjour.find({ type: 'adb-tls-connect' });
+      if (this.adbBrowser) {
+        this.adbBrowser.on('up', this.onAdbServiceUp.bind(this));
+        this.adbBrowser.on('error', (err: unknown) => {
+          console.warn('[DiscoveryEngine] ADB browser error:', err instanceof Error ? err.message : String(err));
+        });
+        this.adbBrowser.start();
+      }
+    } catch (e: unknown) {
+      console.warn('[DiscoveryEngine] Error starting mDNS browsers:', e instanceof Error ? e.message : String(e));
+    }
   }
 
   stop() {
-    if (this.browser) {
-      this.browser.stop();
+    try {
+      if (this.browser) {
+        this.browser.stop();
+      }
+      if (this.adbBrowser) {
+        this.adbBrowser.stop();
+      }
+      this.bonjour.destroy();
+    } catch (e: unknown) {
+      console.warn('[DiscoveryEngine] Error stopping Bonjour:', e instanceof Error ? e.message : String(e));
     }
-    if (this.adbBrowser) {
-      this.adbBrowser.stop();
-    }
-    this.bonjour.destroy();
   }
 
   private onAdbServiceUp(service: Service) {
