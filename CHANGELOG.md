@@ -2,7 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.4-beta.0] - 2026-09-16
+## [1.1.4-beta.1] - 2026-09-16
+
+### Fixed
+- **Child Bridge Stability**: Added direct `castv2` and `protobufjs` dependency declarations to prevent module resolution failures in child bridge processes.
+- **Safe Preloading**: Wrapped protobuf preloading in resilient exception handling so plugin startup never terminates prematurely.
+
 
 ### Fixed
 - **Cast Protocol Stability**: Synchronously pre-load `cast_channel.proto` to eliminate the asynchronous `Error: extension not loaded yet` race condition during initial Cast client connection.
