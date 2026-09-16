@@ -3,7 +3,7 @@ import { HomebridgePluginUiServer } from '@homebridge/plugin-ui-utils';
 import Bonjour from 'bonjour-service';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { writeFileSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
 import androidtvRemote from 'androidtv-remote';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -11,21 +11,72 @@ import { fileURLToPath } from 'url';
 const execAsync = promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+async function isAdbWorking(cmd) {
+  try {
+    await execAsync(`"${cmd}" --version`, { timeout: 2000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function tryAutoInstallAdb() {
+  if (process.platform !== 'linux') {
+    return;
+  }
+
+  // 1. Alpine Linux (Docker container on Synology DSM)
+  if (existsSync('/etc/alpine-release')) {
+    try {
+      console.log('[ADBCast UI] Attempting to auto-install android-tools via apk...');
+      await execAsync('apk add --no-cache android-tools', { timeout: 30000 });
+    } catch (e) {
+      console.error('[ADBCast UI] apk auto-install failed:', e.message);
+    }
+    return;
+  }
+
+  // 2. Debian / Ubuntu
+  if (existsSync('/etc/debian_version')) {
+    try {
+      console.log('[ADBCast UI] Attempting to auto-install adb via apt-get...');
+      await execAsync('apt-get update -qq && (apt-get install -y -qq adb || apt-get install -y -qq android-tools-adb)', { timeout: 60000 });
+    } catch (e) {
+      console.error('[ADBCast UI] apt-get auto-install failed:', e.message);
+    }
+  }
+}
+
+let autoInstallAttempted = false;
+
 async function getAdbPath() {
   const localAdb = path.join(__dirname, '..', 'bin', 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
   const paths = [
     localAdb,
-    '/opt/homebrew/bin/adb',
+    '/usr/bin/adb',
     '/usr/local/bin/adb',
+    '/opt/homebrew/bin/adb',
     'adb',
   ];
+
   for (const p of paths) {
-    try {
-      await execAsync(`${p} --version`, { timeout: 2000 });
+    if (await isAdbWorking(p)) {
       return p;
-    } catch (e) { /* ignore */ }
+    }
   }
-  return 'adb';
+
+  if (!autoInstallAttempted) {
+    autoInstallAttempted = true;
+    await tryAutoInstallAdb();
+
+    for (const p of paths) {
+      if (await isAdbWorking(p)) {
+        return p;
+      }
+    }
+  }
+
+  return null;
 }
 
 class PluginUiServer extends HomebridgePluginUiServer {
@@ -61,15 +112,17 @@ class PluginUiServer extends HomebridgePluginUiServer {
     const { ip, adbIpPort } = payload;
     try {
       const adb = await getAdbPath();
-      if (ip) {
-        try {
-          await execAsync(`${adb} disconnect ${ip}`); 
-        } catch (e) { /* ignore */ }
-      }
-      if (adbIpPort) {
-        try {
-          await execAsync(`${adb} disconnect ${adbIpPort}`); 
-        } catch (e) { /* ignore */ }
+      if (adb) {
+        if (ip) {
+          try {
+            await execAsync(`"${adb}" disconnect ${ip}`); 
+          } catch { /* ignore */ }
+        }
+        if (adbIpPort) {
+          try {
+            await execAsync(`"${adb}" disconnect ${adbIpPort}`); 
+          } catch { /* ignore */ }
+        }
       }
       return { success: true };
     } catch (e) {
@@ -85,15 +138,18 @@ class PluginUiServer extends HomebridgePluginUiServer {
   async checkAdb() {
     try {
       const adb = await getAdbPath();
-      const { stdout } = await execAsync(`${adb} devices -l`, { timeout: 3000 });
+      if (!adb) {
+        return { connected: false, error: 'ADB is not installed on this host.' };
+      }
+      const { stdout } = await execAsync(`"${adb}" devices -l`, { timeout: 3000 });
       const lines = stdout.split('\n').filter(l => l.includes('device ') && !l.startsWith('List'));
       if (lines.length > 0) {
         // Try to get the TV's IP address via adb shell
         let ip = null;
         try {
-          const { stdout: ipOut } = await execAsync(`${adb} shell ip route | grep src | awk '{print $9}'`, { timeout: 3000 });
+          const { stdout: ipOut } = await execAsync(`"${adb}" shell ip route | grep src | awk '{print $9}'`, { timeout: 3000 });
           ip = ipOut.trim();
-        } catch (e) { /* ignore */ }
+        } catch { /* ignore */ }
         
         // Try to get the adb connect port from the device identifier
         const match = lines[0].match(/^(\S+)\s+device/);
@@ -185,7 +241,13 @@ class PluginUiServer extends HomebridgePluginUiServer {
     const { endpoint, code } = payload;
     try {
       const adb = await getAdbPath();
-      const { stdout, stderr } = await execAsync(`${adb} pair ${endpoint} ${code}`);
+      if (!adb) {
+        return { 
+          success: false, 
+          message: 'ADB is not installed on this system or container. You can skip ADB and continue setup.', 
+        };
+      }
+      const { stdout, stderr } = await execAsync(`"${adb}" pair ${endpoint} ${code}`);
       if (stdout.includes('Successfully paired')) {
         return { success: true, message: stdout };
       }
@@ -200,7 +262,7 @@ class PluginUiServer extends HomebridgePluginUiServer {
     if (this.currentRemote) {
       try {
         this.currentRemote.stop();
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
       this.currentRemote = null;
     }
     return new Promise((resolve) => {

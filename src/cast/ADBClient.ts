@@ -16,12 +16,16 @@ function resolveAdbPath(): string {
     return localAdb;
   }
 
-  if (existsSync('/opt/homebrew/bin/adb')) {
-    return '/opt/homebrew/bin/adb';
+  if (existsSync('/usr/bin/adb')) {
+    return '/usr/bin/adb';
   }
 
   if (existsSync('/usr/local/bin/adb')) {
     return '/usr/local/bin/adb';
+  }
+
+  if (existsSync('/opt/homebrew/bin/adb')) {
+    return '/opt/homebrew/bin/adb';
   }
 
   return 'adb';
@@ -62,7 +66,7 @@ export class ADBClient extends EventEmitter {
 
   private async findTargetIdentifier(): Promise<string | null> {
     try {
-      const { stdout } = await execAsync(`${adbPath} devices -l`);
+      const { stdout } = await execAsync(`"${adbPath}" devices -l`);
       const lines = stdout
         .split('\n')
         .filter((l) => l.includes('device ') && !l.startsWith('List'));
@@ -82,7 +86,7 @@ export class ADBClient extends EventEmitter {
 
         try {
           const { stdout: ipOut } = await execAsync(
-            `${adbPath} -s ${id} shell ip route | grep src | awk '{print $9}'`,
+            `"${adbPath}" -s ${id} shell ip route | grep src | awk '{print $9}'`,
           );
 
           if (ipOut.trim() === this.ip) {
@@ -101,7 +105,7 @@ export class ADBClient extends EventEmitter {
 
   private async checkAdbWorks(): Promise<boolean> {
     try {
-      await execAsync(`${adbPath} version`);
+      await execAsync(`"${adbPath}" version`);
       return true;
     } catch {
       return false;
@@ -114,7 +118,7 @@ export class ADBClient extends EventEmitter {
    * Priority:
    * 1. Locally bundled/downloaded ADB
    * 2. System-installed ADB
-   * 3. Automatically download bundled ADB
+   * 3. Automatically download bundled ADB / package manager install
    */
   private async ensureAdbAvailable(): Promise<boolean> {
     // Refresh the path in case ADB was installed after module startup.
@@ -133,7 +137,7 @@ export class ADBClient extends EventEmitter {
     this.adbInstallAttempted = true;
 
     this.log(
-      'ADB was not found. Attempting to download Android Platform Tools automatically...',
+      'ADB was not found. Attempting to install or download Android Platform Tools automatically...',
     );
 
     const installed = await installAdb((message, isError) => {
@@ -144,7 +148,7 @@ export class ADBClient extends EventEmitter {
       return false;
     }
 
-    // The installer has now placed ADB in the local plugin directory.
+    // The installer has now placed ADB in the local plugin directory or installed via apk/apt.
     // Resolve the path again and verify the executable.
     adbPath = resolveAdbPath();
 
@@ -156,7 +160,7 @@ export class ADBClient extends EventEmitter {
     }
 
     this.log(
-      'ADB was downloaded but could not be executed.',
+      'ADB was installed/downloaded but could not be executed on this architecture.',
       true,
     );
 
@@ -184,7 +188,7 @@ The plugin will continue without ADB until it becomes available.`,
     }
     try {
       this.log('Silently configuring TV to keep Wi-Fi awake during sleep...');
-      await execAsync(`${adbPath} -s ${this.targetIdentifier} shell settings put global wifi_sleep_policy 2`);
+      await execAsync(`"${adbPath}" -s ${this.targetIdentifier} shell settings put global wifi_sleep_policy 2`);
     } catch (e: any) {
       this.log(`Failed to configure network standby: ${e.message}`, true);
     }
@@ -221,7 +225,7 @@ The plugin will continue without ADB until it becomes available.`,
       this.log(`Falling back to manual adb connect ${this.endpoint}`);
 
       const { stdout } = await execAsync(
-        `${adbPath} connect ${this.endpoint}`,
+        `"${adbPath}" connect ${this.endpoint}`,
       );
 
       if (
@@ -261,7 +265,7 @@ The plugin will continue without ADB until it becomes available.`,
 
     try {
       const { stdout } = await execAsync(
-        `${adbPath} pair ${pairingEndpoint} ${code}`,
+        `"${adbPath}" pair ${pairingEndpoint} ${code}`,
       );
 
       if (stdout.includes('Successfully paired')) {
@@ -287,7 +291,7 @@ The plugin will continue without ADB until it becomes available.`,
       const target = this.targetIdentifier || this.endpoint;
 
       const { stdout } = await execAsync(
-        `${adbPath} -s ${target} shell dumpsys media_session`,
+        `"${adbPath}" -s ${target} shell dumpsys media_session`,
       );
 
       const lines = stdout.split('\n');

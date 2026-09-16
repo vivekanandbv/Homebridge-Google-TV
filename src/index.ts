@@ -1,3 +1,4 @@
+import './cast/protoFix.js';
 import { API } from 'homebridge';
 import { PLATFORM_NAME } from './settings.js';
 import { ADBCastPlatform } from './platform.js';

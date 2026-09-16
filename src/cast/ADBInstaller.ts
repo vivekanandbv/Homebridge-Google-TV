@@ -6,7 +6,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const execAsync = promisify(exec);
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const urls: Record<string, string> = {
@@ -24,6 +23,51 @@ export function getLocalAdbPath(): string {
     'platform-tools',
     process.platform === 'win32' ? 'adb.exe' : 'adb',
   );
+}
+
+export async function isAdbExecutable(cmdPath: string): Promise<boolean> {
+  try {
+    await execAsync(`"${cmdPath}" --version`, { timeout: 3000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function tryContainerPackageInstall(log: (msg: string, isError?: boolean) => void): Promise<boolean> {
+  if (process.platform !== 'linux') {
+    return false;
+  }
+
+  // Check Alpine Linux (Docker container standard on Synology DSM)
+  if (fs.existsSync('/etc/alpine-release')) {
+    try {
+      log('Detected Alpine Linux container. Installing android-tools via apk...');
+      await execAsync('apk add --no-cache android-tools', { timeout: 30000 });
+      if (await isAdbExecutable('adb')) {
+        log('Successfully installed android-tools (ADB) via apk.');
+        return true;
+      }
+    } catch (e: unknown) {
+      log(`apk install attempt failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  // Check Debian / Ubuntu
+  if (fs.existsSync('/etc/debian_version')) {
+    try {
+      log('Detected Debian/Ubuntu container. Installing adb via apt-get...');
+      await execAsync('apt-get update -qq && (apt-get install -y -qq adb || apt-get install -y -qq android-tools-adb)', { timeout: 60000 });
+      if (await isAdbExecutable('adb')) {
+        log('Successfully installed adb via apt-get.');
+        return true;
+      }
+    } catch (e: unknown) {
+      log(`apt-get install attempt failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  return false;
 }
 
 async function downloadFile(url: string, dest: string): Promise<void> {
@@ -75,6 +119,11 @@ export async function installAdb(
     }
   },
 ): Promise<boolean> {
+  // 1. Try container package manager first on Linux
+  if (await tryContainerPackageInstall(log)) {
+    return true;
+  }
+
   const platform = process.platform;
   const url = urls[platform];
 
@@ -83,10 +132,15 @@ export async function installAdb(
     return false;
   }
 
+  if (platform === 'linux' && process.arch !== 'x64') {
+    log(`Linux ${process.arch} architecture detected. Google platform-tools binaries are x86_64 only.`, true);
+    return false;
+  }
+
   const adbPath = getLocalAdbPath();
   const binDir = path.dirname(path.dirname(adbPath));
 
-  if (fs.existsSync(adbPath)) {
+  if (fs.existsSync(adbPath) && await isAdbExecutable(adbPath)) {
     return true;
   }
 
@@ -117,8 +171,8 @@ export async function installAdb(
       fs.unlinkSync(zipPath);
     }
 
-    if (!fs.existsSync(adbPath)) {
-      log('ADB download completed, but the adb executable was not found.', true);
+    if (!fs.existsSync(adbPath) || !(await isAdbExecutable(adbPath))) {
+      log('ADB download completed, but the binary is not executable on this architecture.', true);
       return false;
     }
 

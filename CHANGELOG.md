@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4-beta.0] - 2026-09-16
+
+### Fixed
+- **Cast Protocol Stability**: Synchronously pre-load `cast_channel.proto` to eliminate the asynchronous `Error: extension not loaded yet` race condition during initial Cast client connection.
+- **Automated ADB Provisioning in Containers**: Automatically provision `android-tools` (ADB) inside Alpine Linux (Synology DSM Docker containers) and Debian/Ubuntu containers without requiring users to run terminal commands.
+- **Multi-Architecture Support**: Gracefully handle Linux ARM/AArch64 architectures and prevent incompatible x86_64 binary extraction.
+
 ## [1.1.3] - 2026-09-15
 
 ### Fixed

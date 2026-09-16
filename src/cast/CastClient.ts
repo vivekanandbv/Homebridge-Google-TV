@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import './protoFix.js';
 import { PersistentClient, createPlatform, DefaultMediaApp, ReceiverController } from '@foxxmd/chromecast-client';
 import { EventEmitter } from 'events';
 
@@ -36,7 +37,7 @@ export class CastClient extends EventEmitter {
       }
       // Launching an app wakes up the TV via HDMI-CEC
       await DefaultMediaApp.launchAndJoin({ client: this.client });
-    } catch(e) {
+    } catch (e) {
       console.error('Failed to power on', e);
     }
   }
