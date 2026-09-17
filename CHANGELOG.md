@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4-beta.4] - 2026-09-17
+
+### Fixed
+- **Cast Heartbeat & Keep-Alive**: Added active 15-second heartbeat PING intervals on `urn:x-cast:com.google.cast.tp.heartbeat` to prevent Chromecast from closing idle TLS sockets during standby.
+- **Timeout & Reconnect Resilience**: Guarded Cast RPC calls (`getVolume`, `getStatus`) against socket timeout hangs during standby/semi-sleep state.
+- **Network Standby Provisioning**: Configured TV Wi-Fi sleep policy and stay-on-plugged settings via ADB to maintain connection.
+
 ## [1.1.4-beta.3] - 2026-09-17
 
 ### Fixed

@@ -210,8 +210,9 @@ The plugin will continue without ADB until it becomes available.`,
       return;
     }
     try {
-      this.log('Silently configuring TV to keep Wi-Fi awake during sleep...');
+      this.log('Silently configuring TV to keep Wi-Fi and Cast connection active during standby...');
       await execAsync(`"${adbPath}" -s ${this.targetIdentifier} shell settings put global wifi_sleep_policy 2`, { timeout: 4000 });
+      await execAsync(`"${adbPath}" -s ${this.targetIdentifier} shell settings put global stay_on_while_plugged_in 3`, { timeout: 4000 });
     } catch (e: any) {
       this.log(`Failed to configure network standby: ${e.message}`, true);
     }
