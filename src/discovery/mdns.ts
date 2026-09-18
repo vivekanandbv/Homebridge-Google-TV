@@ -108,7 +108,7 @@ export class DiscoveryEngine extends EventEmitter {
 
     // Filter out Tata Play set-top boxes as requested by user
     if (model.toLowerCase().includes('tata sky') || name.toLowerCase().includes('tata play')) {
-      console.log(`[DiscoveryEngine] Ignoring non-Chromecast device: ${name} (${model})`);
+      // Silent ignore for non-Chromecast devices
       return;
     }
 

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4-beta.7] - 2026-09-19
+
+### Changed
+- **Optimized Logging & Reduced Console Noise**: Silenced routine 3-second background ADB media polling logs and rate-limited steady-state playback resolution logs to at most once every 2 minutes (or immediately on state changes).
+- **Smart Power Log Filtering**: Power state change logs are now only emitted when the TV actually transitions between ON and OFF states.
+
 ## [1.1.4-beta.6] - 2026-09-19
 
 ### Fixed

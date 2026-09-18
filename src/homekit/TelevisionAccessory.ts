@@ -33,6 +33,8 @@ export class TelevisionAccessory {
   private mediaStateManager: MediaStateManager;
   private isPowerOn = false;
   private currentInputId = 1;
+  private lastLoggedPlaybackState = '';
+  private lastPlaybackLogTime = 0;
   private inputServices: Service[] = [];
 
   constructor(
@@ -57,7 +59,7 @@ export class TelevisionAccessory {
         if (isError) {
           this.platform.log.error(`[ADBClient] ${msg}`);
         } else {
-          this.platform.log.info(`[ADBClient] ${msg}`);
+          this.platform.log.debug(`[ADBClient] ${msg}`);
         }
       });
     }
@@ -81,7 +83,9 @@ export class TelevisionAccessory {
     });
 
     this.androidTVClient.on('powered', (powered: boolean) => {
-      this.platform.log.info(`[AndroidTV] Live power state updated: ${powered ? 'ON' : 'OFF'}`);
+      if (this.isPowerOn !== powered) {
+        this.platform.log.info(`[AndroidTV] Live power state changed: ${powered ? 'ON' : 'OFF'}`);
+      }
       this.isPowerOn = powered;
       this.tvService.updateCharacteristic(this.platform.Characteristic.Active, powered ? 1 : 0);
     });
@@ -241,7 +245,15 @@ export class TelevisionAccessory {
         try {
           if (this.bulbService) {
             const mediaState = this.mediaStateManager.getResolvedPlaybackState();
-            this.platform.log.info(`[PlaybackState] Resolved: ${mediaState.state} (Source: ${mediaState.source})`);
+            const now = Date.now();
+            const stateKey = `${mediaState.state}-${mediaState.source}`;
+            if (stateKey !== this.lastLoggedPlaybackState || now - this.lastPlaybackLogTime >= 120000) {
+              this.platform.log.info(`[PlaybackState] Resolved: ${mediaState.state} (Source: ${mediaState.source})`);
+              this.lastLoggedPlaybackState = stateKey;
+              this.lastPlaybackLogTime = now;
+            } else {
+              this.platform.log.debug(`[PlaybackState] Resolved: ${mediaState.state} (Source: ${mediaState.source})`);
+            }
             this.bulbService.updateCharacteristic(this.platform.Characteristic.On, mediaState.state === 'PLAYING');
           }
         } catch { /* ignore */ }

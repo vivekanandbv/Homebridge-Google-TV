@@ -402,9 +402,7 @@ The plugin will continue without ADB until it becomes available.`,
           playbackState = 'BUFFERING';
         }
 
-        this.log(
-          `getMediaState active session package: ${activeSession.pkg}, state: ${playbackState}`,
-        );
+        // Silent background state parsing
 
         return {
           appPackage: activeSession.pkg,
@@ -412,7 +410,7 @@ The plugin will continue without ADB until it becomes available.`,
         };
       }
 
-      this.log('getMediaState no active session found');
+      // Silent background state parsing
 
       return {
         playbackState: 'UNKNOWN',
