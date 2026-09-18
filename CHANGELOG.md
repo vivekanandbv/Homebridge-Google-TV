@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4-beta.6] - 2026-09-19
+
+### Fixed
+- **ADB Fallback for Remote Keys & Power**: Added automatic ADB fallback (`adb shell input keyevent`) for all HomeKit remote buttons (D-pad navigation, select, back, play/pause) and power commands (`224` wakeup / `223` sleep) whenever the Android TV Remote SSL connection is disconnected or un-paired.
+- **RemoteManager Uncaught Exception Guard**: Patched internal `RemoteManager` EventEmitter error handling to eliminate `ERR_UNHANDLED_ERROR` uncaught exceptions when Google TV returns `code1: 622` (`remoteError`).
+- **Certificate PEM Validation Guard**: Added validation to verify stored client certificates before initiating TLS connection on port 6466, preventing handshake rejections from corrupted or empty config entries.
+- **Enhanced Remote Re-pairing**: Added a 1-click **"Re-pair Remote"** action on the plugin dashboard and improved socket teardown isolation during pairing attempts.
+
 ## [1.1.4-beta.5] - 2026-09-18
 
 ### Fixed

@@ -431,6 +431,48 @@ The plugin will continue without ADB until it becomes available.`,
     }
   }
 
+  async sendKey(keyCode: number): Promise<boolean> {
+    try {
+      if (!this.isConnected) {
+        await this.connect();
+      }
+      const target = this.targetIdentifier || this.endpoint;
+      await execAsync(`"${adbPath}" -s ${target} shell input keyevent ${keyCode}`, { timeout: 4000 });
+      return true;
+    } catch (e: any) {
+      this.log(`sendKey error (${keyCode}): ${e.message}`, true);
+      return false;
+    }
+  }
+
+  async powerOn(): Promise<boolean> {
+    try {
+      if (!this.isConnected) {
+        await this.connect();
+      }
+      const target = this.targetIdentifier || this.endpoint;
+      await execAsync(`"${adbPath}" -s ${target} shell input keyevent 224`, { timeout: 4000 });
+      return true;
+    } catch (e: any) {
+      this.log(`powerOn error: ${e.message}`, true);
+      return false;
+    }
+  }
+
+  async powerOff(): Promise<boolean> {
+    try {
+      if (!this.isConnected) {
+        await this.connect();
+      }
+      const target = this.targetIdentifier || this.endpoint;
+      await execAsync(`"${adbPath}" -s ${target} shell input keyevent 223`, { timeout: 4000 });
+      return true;
+    } catch (e: any) {
+      this.log(`powerOff error: ${e.message}`, true);
+      return false;
+    }
+  }
+
   startPolling(intervalMs: number = 5000) {
     this.stopPolling();
 

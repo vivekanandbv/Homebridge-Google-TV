@@ -30,6 +30,24 @@ export function applyProtoFix(): void {
     // If proto pre-load fails, log safely and let castv2 default loader run
     console.warn('[ADBCast] Warning: Synchronous protobuf pre-loading skipped:', error);
   }
+
+  // Patch RemoteManager to prevent unhandled EventEmitter error crashes
+  try {
+    const require = createRequire(import.meta.url);
+    const rmModule = require('androidtv-remote/dist/remote/RemoteManager.js');
+    if (rmModule && rmModule.RemoteManager) {
+      const origEmit = rmModule.RemoteManager.prototype.emit;
+      rmModule.RemoteManager.prototype.emit = function (event: string, ...args: unknown[]) {
+        if (event === 'error' && this.listenerCount('error') === 0) {
+          // Suppress unhandled error event to prevent Node unhandled exception
+          return false;
+        }
+        return origEmit.apply(this, [event, ...args]);
+      };
+    }
+  } catch (err) {
+    console.warn('[ADBCast] Warning: RemoteManager error patch skipped:', err);
+  }
 }
 
 applyProtoFix();

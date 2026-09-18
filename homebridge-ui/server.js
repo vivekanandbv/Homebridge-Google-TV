@@ -278,6 +278,7 @@ class PluginUiServer extends HomebridgePluginUiServer {
         this.currentRemote.stop();
       } catch { /* ignore */ }
       this.currentRemote = null;
+      await new Promise((r) => setTimeout(r, 400));
     }
     return new Promise((resolve) => {
       try {

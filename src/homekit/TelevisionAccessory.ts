@@ -65,11 +65,15 @@ export class TelevisionAccessory {
     this.mediaStateManager = new MediaStateManager(this.castClient, this.androidTVClient, this.adbClient);
 
     this.androidTVClient.on('error', (err) => {
-      this.platform.log.debug(`[AndroidTVClient] Background connection error: ${err.message}`);
+      this.platform.log.debug(`[AndroidTVClient] Background connection error: ${err?.message || err}`);
+    });
+
+    this.androidTVClient.on('unpaired', () => {
+      this.platform.log.warn(`[AndroidTVClient] Remote certificate rejected on ${ip}. Falling back to ADB for button & power controls.`);
     });
 
     this.castClient.on('error', (err) => {
-      this.platform.log.debug(`[CastClient] Background connection error: ${err.message}`);
+      this.platform.log.debug(`[CastClient] Background connection error: ${err?.message || err}`);
     });
 
     this.androidTVClient.on('ready', () => {
@@ -113,11 +117,31 @@ export class TelevisionAccessory {
     this.tvService.getCharacteristic(this.platform.Characteristic.Active)
       .onSet(async (value) => {
         this.platform.log.info(`[TV Power] Set Active -> ${value === 1 ? 'ON' : 'OFF'}`);
-        if (value === 1) {
-          await this.androidTVClient.powerOn();
-        } else {
-          await this.androidTVClient.powerOff();
+        const turnOn = value === 1;
+        let powerDone = false;
+
+        if (this.androidTVClient.isRemoteConnected) {
+          try {
+            if (turnOn) {
+              powerDone = await this.androidTVClient.powerOn();
+            } else {
+              powerDone = await this.androidTVClient.powerOff();
+            }
+          } catch (e: any) {
+            this.platform.log.debug(`[TV Power] androidTVClient power failed: ${e?.message || e}`);
+          }
         }
+
+        if (!powerDone && this.adbClient) {
+          this.platform.log.info(`[TV Power] Remote unavailable. Using ADB fallback to power ${turnOn ? 'ON' : 'OFF'}`);
+          if (turnOn) {
+            await this.adbClient.powerOn();
+          } else {
+            await this.adbClient.powerOff();
+          }
+        }
+
+        this.isPowerOn = turnOn;
       })
       .onGet(async () => {
         return this.isPowerOn ? 1 : 0;
@@ -155,17 +179,25 @@ export class TelevisionAccessory {
         const selector = value as number;
         if (selector === this.platform.Characteristic.VolumeSelector.INCREMENT) {
           this.platform.log.info('[TV Speaker] Volume Up');
-          await this.androidTVClient.sendKey(24);
+          await this.sendKey(24);
         } else {
           this.platform.log.info('[TV Speaker] Volume Down');
-          await this.androidTVClient.sendKey(25);
+          await this.sendKey(25);
         }
       });
 
     this.speakerService.getCharacteristic(this.platform.Characteristic.Mute)
       .onSet(async (value) => {
         this.platform.log.info(`[TV Speaker] Set Mute -> ${value}`);
-        await this.androidTVClient.setMuted(value as boolean);
+        let muteSuccess = false;
+        if (this.androidTVClient.isRemoteConnected) {
+          try {
+            muteSuccess = await this.androidTVClient.setMuted(value as boolean);
+          } catch { /* ignore */ }
+        }
+        if (!muteSuccess && this.adbClient) {
+          await this.adbClient.sendKey(164); // KEYCODE_VOLUME_MUTE
+        }
       });
 
     // Link Speaker Service to the Primary Television Service
@@ -290,7 +322,7 @@ export class TelevisionAccessory {
 
     try {
       if (inputName === 'Home') {
-        await this.androidTVClient.sendKey(3); // Go Home
+        await this.sendKey(3); // Go Home
         return;
       }
       
@@ -306,47 +338,69 @@ export class TelevisionAccessory {
     }
   }
 
+  private async sendKey(keyCode: number): Promise<boolean> {
+    let success = false;
+    if (this.androidTVClient.isRemoteConnected) {
+      try {
+        success = await this.androidTVClient.sendKey(keyCode);
+      } catch (e: any) {
+        this.platform.log.debug(`[TelevisionAccessory] androidTVClient.sendKey failed: ${e?.message || e}`);
+      }
+    }
+
+    if (!success && this.adbClient) {
+      this.platform.log.info(`[TelevisionAccessory] Remote unavailable. Using ADB fallback for keyevent ${keyCode}`);
+      success = await this.adbClient.sendKey(keyCode);
+    }
+
+    if (!success) {
+      this.platform.log.warn(`[TelevisionAccessory] Failed to send key ${keyCode}: Neither Remote nor ADB is connected.`);
+    }
+
+    return success;
+  }
+
   private async handleRemoteKey(key: number) {
     const Char = this.platform.Characteristic;
     switch (key) {
     case Char.RemoteKey.REWIND:
-      await this.androidTVClient.sendKey(89);
+      await this.sendKey(89);
       break;
     case Char.RemoteKey.FAST_FORWARD:
-      await this.androidTVClient.sendKey(90);
+      await this.sendKey(90);
       break;
     case Char.RemoteKey.NEXT_TRACK:
-      await this.androidTVClient.sendKey(87);
+      await this.sendKey(87);
       break;
     case Char.RemoteKey.PREVIOUS_TRACK:
-      await this.androidTVClient.sendKey(88);
+      await this.sendKey(88);
       break;
     case Char.RemoteKey.ARROW_UP:
-      await this.androidTVClient.sendKey(19);
+      await this.sendKey(19);
       break;
     case Char.RemoteKey.ARROW_DOWN:
-      await this.androidTVClient.sendKey(20);
+      await this.sendKey(20);
       break;
     case Char.RemoteKey.ARROW_LEFT:
-      await this.androidTVClient.sendKey(21);
+      await this.sendKey(21);
       break;
     case Char.RemoteKey.ARROW_RIGHT:
-      await this.androidTVClient.sendKey(22);
+      await this.sendKey(22);
       break;
     case Char.RemoteKey.SELECT:
-      await this.androidTVClient.sendKey(66);
+      await this.sendKey(66);
       break;
     case Char.RemoteKey.BACK:
-      await this.androidTVClient.sendKey(4);
+      await this.sendKey(4);
       break;
     case Char.RemoteKey.EXIT:
-      await this.androidTVClient.sendKey(4);
+      await this.sendKey(4);
       break;
     case Char.RemoteKey.PLAY_PAUSE:
-      await this.androidTVClient.sendKey(85);
+      await this.sendKey(85);
       break;
     case Char.RemoteKey.INFORMATION:
-      await this.androidTVClient.sendKey(82);
+      await this.sendKey(82);
       break;
     }
   }
@@ -378,11 +432,22 @@ export class TelevisionAccessory {
       this.platform.log.info('[TelevisionAccessory] Skipping remote connection: No paired cert saved yet.');
     }
 
+    if (this.adbClient) {
+      try {
+        const adbConnected = await this.adbClient.connect();
+        if (adbConnected) {
+          anyConnected = true;
+        }
+      } catch (e) {
+        this.platform.log.error('ADBClient connect failed:', e);
+      }
+    }
+
     if (anyConnected) {
       this.isPowerOn = true;
       this.updateState();
     } else {
-      this.platform.log.error('Both CastClient and AndroidTVClient failed to connect.');
+      this.platform.log.error('CastClient, AndroidTVClient, and ADBClient failed to connect.');
       this.isPowerOn = false;
     }
   }

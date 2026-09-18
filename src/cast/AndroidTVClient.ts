@@ -15,17 +15,33 @@ export class AndroidTVClient extends EventEmitter {
     return this.isPowerOnState;
   }
 
+  public get isRemoteConnected(): boolean {
+    return this.isConnected;
+  }
+
+  public get hasValidCert(): boolean {
+    return !!(
+      this.cert &&
+      typeof this.cert.key === 'string' &&
+      typeof this.cert.cert === 'string' &&
+      this.cert.key.includes('BEGIN') &&
+      this.cert.cert.includes('BEGIN')
+    );
+  }
+
   constructor(ip: string, pairingCode?: string, cert?: any) {
     super();
     this.ip = ip;
     this.pairingCode = pairingCode;
     this.cert = cert;
 
+    const validCert = this.hasValidCert ? this.cert : {};
+
     this.options = {
       pairing_port: 6467,
       remote_port: 6466,
       name: 'homebridge-google-tv',
-      cert: this.cert || {},
+      cert: validCert,
     };
 
     this.remote = new AndroidRemote(this.ip, this.options);
@@ -57,8 +73,20 @@ export class AndroidTVClient extends EventEmitter {
       this.emit('ready', this.cert);
     });
 
+    this.remote.on('unpaired', () => {
+      this.isConnected = false;
+      this.emit('unpaired');
+    });
+
     this.remote.on('error', (err: any) => {
-      // Don't log normal background connection errors to avoid spam
+      const isReject =
+        err?.error?.message?.remoteConfigure?.code1 === 622 ||
+        err?.error?.value === true ||
+        err?.message?.includes('622');
+      if (isReject) {
+        this.isConnected = false;
+        this.emit('unpaired');
+      }
       this.emit('error', err);
     });
   }
@@ -69,8 +97,9 @@ export class AndroidTVClient extends EventEmitter {
     }
     this.ip = newIp;
     this.disconnect();
-    
-    // Remote library doesn't expose host setter, so we recreate it
+
+    const validCert = this.hasValidCert ? this.cert : {};
+    this.options.cert = validCert;
     this.remote = new AndroidRemote(this.ip, this.options);
     this.bindRemoteEvents();
   }
@@ -79,32 +108,55 @@ export class AndroidTVClient extends EventEmitter {
     if (this.isConnected) {
       return;
     }
+    if (!this.hasValidCert) {
+      this.isConnected = false;
+      return;
+    }
     try {
       await this.remote.start();
     } catch (e) {
+      this.isConnected = false;
       console.error('[AndroidTV] Start error:', e);
       throw e;
     }
   }
 
   async disconnect() {
-    this.remote.stop();
+    try {
+      this.remote.stop();
+    } catch { /* ignore */ }
     this.isConnected = false;
   }
 
-  async powerOn() {
-    if (!this.isPowerOnState) {
-      await this.sendKey(26); // KEYCODE_POWER (Toggle ON)
-      this.isPowerOnState = true;
-      this.emit('powered', true);
+  async powerOn(): Promise<boolean> {
+    if (!this.isConnected) {
+      return false;
+    }
+    try {
+      if (!this.isPowerOnState) {
+        await this.sendKey(26); // KEYCODE_POWER (Toggle ON)
+        this.isPowerOnState = true;
+        this.emit('powered', true);
+      }
+      return true;
+    } catch {
+      return false;
     }
   }
 
-  async powerOff() {
-    if (this.isPowerOnState) {
-      await this.sendKey(26); // KEYCODE_POWER (Toggle OFF)
-      this.isPowerOnState = false;
-      this.emit('powered', false);
+  async powerOff(): Promise<boolean> {
+    if (!this.isConnected) {
+      return false;
+    }
+    try {
+      if (this.isPowerOnState) {
+        await this.sendKey(26); // KEYCODE_POWER (Toggle OFF)
+        this.isPowerOnState = false;
+        this.emit('powered', false);
+      }
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -113,16 +165,24 @@ export class AndroidTVClient extends EventEmitter {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async setMuted(muted: boolean) {
-    this.sendKey(RemoteKeyCode.KEYCODE_MUTE);
+  async setMuted(muted: boolean): Promise<boolean> {
+    return this.sendKey(RemoteKeyCode.KEYCODE_MUTE);
   }
 
-  async sendKey(keyCode: number) {
-    // Send a press down, wait 100ms, then release. 
-    // This perfectly emulates a human button press and solves ignored "Short" commands.
-    this.remote.sendKey(keyCode, 1); // RemoteDirection.START_LONG
-    setTimeout(() => {
-      this.remote.sendKey(keyCode, 2); // RemoteDirection.END_LONG
-    }, 100);
+  async sendKey(keyCode: number): Promise<boolean> {
+    if (!this.isConnected) {
+      return false;
+    }
+    try {
+      this.remote.sendKey(keyCode, 1); // RemoteDirection.START_LONG
+      setTimeout(() => {
+        try {
+          this.remote.sendKey(keyCode, 2); // RemoteDirection.END_LONG
+        } catch { /* ignore */ }
+      }, 100);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
