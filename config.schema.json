@@ -32,6 +32,12 @@
               "type": "string",
               "required": true
             },
+            "disableVolumeBulb": {
+              "title": "Disable Volume / Playback Dimmer Lightbulb",
+              "type": "boolean",
+              "default": false,
+              "description": "Disable the separate Volume/Playback dimmer lightbulb accessory in HomeKit."
+            },
             "cert": {
               "title": "Remote Certificate",
               "type": "object"

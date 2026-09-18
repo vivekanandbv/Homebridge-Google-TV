@@ -28,43 +28,51 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
     this.api.on('didFinishLaunching', () => {
       this.log.debug('Executed didFinishLaunching callback');
       
-      // Load all configured devices on startup immediately
       const devices = this.config.devices || [];
+      const validBulbUuids = new Set<string>();
+
+      // 1. Identify all valid lightbulb UUIDs for configured devices
       for (const device of devices) {
         if (device.ip) {
           const deviceId = device.id || (device.ip + '_static');
-          
-          // Cleanup old accessories from previous architecture if they exist in cache
-          const oldUuids = [
-            this.api.hap.uuid.generate(deviceId + '_controls_v1'),
-            this.api.hap.uuid.generate(deviceId + '_static_controls_v1'),
-            this.api.hap.uuid.generate(deviceId + '_static_v5'),
-            this.api.hap.uuid.generate(device.ip + '_static_v5'),
-            this.api.hap.uuid.generate(device.ip + '_static_controls_v1'),
-            this.api.hap.uuid.generate(device.ip + '_controls_v1'),
-            this.api.hap.uuid.generate(deviceId + '_lightbulb_v2'),
-            this.api.hap.uuid.generate(device.ip + '_lightbulb_v2'),
-            this.api.hap.uuid.generate(device.ip + '_static_volbulb_v1'),
-          ];
-          
-          for (const oldUuid of oldUuids) {
-            const oldAccessory = this.accessories.get(oldUuid);
-            if (oldAccessory) {
-              this.log.info(`[Platform] Cleaning up old cached accessory: ${oldAccessory.displayName}`);
-              try {
-                this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [oldAccessory]);
-              } catch (e) { /* ignore */ }
-              this.accessories.delete(oldUuid);
-            }
+          const bulbUuid = this.api.hap.uuid.generate(deviceId + '_volbulb_v1');
+          if (!device.disableVolumeBulb) {
+            validBulbUuids.add(bulbUuid);
           }
-          
+        }
+      }
+
+      // 2. Remove orphaned, unconfigured, or disabled cached accessories
+      for (const [uuid, cachedAccessory] of this.accessories.entries()) {
+        if (!validBulbUuids.has(uuid)) {
+          this.log.info(`[Platform] Removing unconfigured or disabled cached accessory: ${cachedAccessory.displayName}`);
+          try {
+            this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [cachedAccessory]);
+          } catch (e) {
+            this.log.debug(`Failed to unregister accessory ${cachedAccessory.displayName}:`, e);
+          }
+          this.accessories.delete(uuid);
+        }
+      }
+
+      // 3. Initialize explicitly configured devices
+      for (const device of devices) {
+        if (device.ip) {
           this.log.info(`[Platform] Initializing configured device on startup: ${device.name || 'Google TV'} (${device.ip})`);
           this.setupConfiguredDevice(device);
         }
       }
 
-      this.discovery.on('device_discovered', this.onDeviceDiscovered.bind(this));
+      // 4. Listen for mDNS updates ONLY for configured devices (do not auto-add random LAN devices)
       this.discovery.on('device_updated', this.onDeviceUpdated.bind(this));
+      this.discovery.on('device_discovered', (discovered: DiscoveredDevice) => {
+        const match = devices.find((d: any) => d.ip === discovered.ip || (d.id && d.id === discovered.id));
+        if (match) {
+          this.onDeviceUpdated(discovered);
+        } else {
+          this.log.debug(`[Platform] Ignoring unconfigured Cast device on network: ${discovered.name} (${discovered.ip})`);
+        }
+      });
       this.discovery.start();
     });
   }
@@ -88,20 +96,23 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
     const tvAccessory = new this.api.platformAccessory(displayName, tvUuid, this.api.hap.Categories.TELEVISION);
     tvAccessory.context.device = { id: deviceId, name: displayName, ip: device.ip };
 
-    // 2. Setup the Volume Dimmer Lightbulb (Bridged)
-    const bulbUuid = this.api.hap.uuid.generate(deviceId + '_volbulb_v1');
-    let bulbAccessory = this.accessories.get(bulbUuid);
+    // 2. Setup the Volume Dimmer Lightbulb (Bridged) if enabled
+    let bulbAccessory: PlatformAccessory | undefined;
+    if (!device.disableVolumeBulb) {
+      const bulbUuid = this.api.hap.uuid.generate(deviceId + '_volbulb_v1');
+      bulbAccessory = this.accessories.get(bulbUuid);
 
-    if (!bulbAccessory) {
-      this.log.info('Adding Volume Dimmer Lightbulb:', displayName + ' Volume');
-      bulbAccessory = new this.api.platformAccessory(displayName + ' Volume', bulbUuid, this.api.hap.Categories.LIGHTBULB);
-      bulbAccessory.context.device = { id: deviceId, name: displayName + ' Volume', ip: device.ip };
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [bulbAccessory]);
-      this.accessories.set(bulbUuid, bulbAccessory);
-    } else {
-      this.log.info('Restoring Volume Dimmer Lightbulb from cache:', bulbAccessory.displayName);
-      bulbAccessory.context.device = { id: deviceId, name: displayName + ' Volume', ip: device.ip };
-      this.api.updatePlatformAccessories([bulbAccessory]);
+      if (!bulbAccessory) {
+        this.log.info('Adding Volume Dimmer Lightbulb:', displayName + ' Volume');
+        bulbAccessory = new this.api.platformAccessory(displayName + ' Volume', bulbUuid, this.api.hap.Categories.LIGHTBULB);
+        bulbAccessory.context.device = { id: deviceId, name: displayName + ' Volume', ip: device.ip };
+        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [bulbAccessory]);
+        this.accessories.set(bulbUuid, bulbAccessory);
+      } else {
+        this.log.info('Restoring Volume Dimmer Lightbulb from cache:', bulbAccessory.displayName);
+        bulbAccessory.context.device = { id: deviceId, name: displayName + ' Volume', ip: device.ip };
+        this.api.updatePlatformAccessories([bulbAccessory]);
+      }
     }
 
     const tvAccObj = new TelevisionAccessory(this, tvAccessory, bulbAccessory, device.ip);
@@ -114,53 +125,13 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  onDeviceDiscovered(device: DiscoveredDevice) {
-    if (this.activeDevicesByIp.has(device.ip)) {
-      this.log.info(`[Platform] Discovered device ${device.name} via mDNS, but it is already active. Ignoring.`);
-      return;
-    }
-    this.activeDevicesByIp.add(device.ip);
-
-    const uuid = this.api.hap.uuid.generate(device.id + '_tv_v4');
-    const displayName = device.name;
-    this.log.info('Publishing newly discovered accessory as a Television:', displayName);
-    const tvAccessory = new this.api.platformAccessory(displayName, uuid, this.api.hap.Categories.TELEVISION);
-    tvAccessory.context.device = device;
-
-    // Setup the Volume Dimmer Lightbulb (Bridged)
-    const bulbUuid = this.api.hap.uuid.generate(device.id + '_volbulb_v1');
-    let bulbAccessory = this.accessories.get(bulbUuid);
-
-    if (!bulbAccessory) {
-      this.log.info('Adding Volume Dimmer Lightbulb:', displayName + ' Volume');
-      bulbAccessory = new this.api.platformAccessory(displayName + ' Volume', bulbUuid, this.api.hap.Categories.LIGHTBULB);
-      bulbAccessory.context.device = { id: device.id, name: displayName + ' Volume', ip: device.ip };
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [bulbAccessory]);
-      this.accessories.set(bulbUuid, bulbAccessory);
-    } else {
-      this.log.info('Restoring Volume Dimmer Lightbulb from cache:', bulbAccessory.displayName);
-      bulbAccessory.context.device = { id: device.id, name: displayName + ' Volume', ip: device.ip };
-      this.api.updatePlatformAccessories([bulbAccessory]);
-    }
-
-    const tvAccObj = new TelevisionAccessory(this, tvAccessory, bulbAccessory, device.ip);
-    this.tvAccessories.set(device.id, tvAccObj);
-
-    try {
-      this.api.publishExternalAccessories(PLUGIN_NAME, [tvAccessory]);
-    } catch (e) {
-      this.log.error('Failed to publish external TV accessory:', e);
-    }
-  }
-
   onDeviceUpdated(device: DiscoveredDevice) {
     this.log.info(`[Platform] Device updated via mDNS: ${device.name} (IP: ${device.ip}, ADB Port: ${device.adbPort || 'N/A'})`);
     
-    // Find if we have an active TelevisionAccessory for this device ID
-    const tvAcc = this.tvAccessories.get(device.id);
+    // Find if we have an active TelevisionAccessory for this device ID or IP
+    const tvAcc = this.tvAccessories.get(device.id) || Array.from(this.tvAccessories.values()).find(acc => acc.getPreviousIp() === device.ip);
     if (tvAcc) {
       tvAcc.updateIpAndPort(device.ip, device.adbPort);
-      // Context changes are automatically saved by Homebridge to cachedAccessories
     }
   }
 }

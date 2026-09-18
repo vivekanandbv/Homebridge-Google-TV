@@ -340,6 +340,12 @@
               <button class="btn btn-danger btn-sm" onclick="handleDelete(this, '${d.ip}')" style="background-color: #d9534f; border-color: #d43f3a; color: white; transition: all 0.2s;">Delete</button>
             </div>
             <div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+              <label style="display: inline-flex; align-items: center; font-weight: normal; cursor: pointer; font-size: 13px; margin-bottom: 8px;">
+                <input type="checkbox" ${d.disableVolumeBulb ? "" : "checked"} style="margin-right: 6px;" onchange="toggleVolumeBulb('${d.ip}', this.checked)" />
+                Enable Volume / Playback Dimmer Lightbulb
+              </label>
+            </div>
+            <div style="margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
               <div style="font-size: 12px; font-weight: bold; opacity: 0.8; margin-bottom: 6px;">Enabled Input Sources:</div>
               <div style="display: flex; flex-wrap: wrap; margin-bottom: 6px;">
                 ${appCheckboxes.length ? appCheckboxes : '<span style="font-size: 13px; opacity: 0.5; margin-bottom: 6px;">No inputs enabled.</span>'}
@@ -394,6 +400,14 @@
       select.value = '';
       await homebridge.updatePluginConfig(pluginConfig);
       renderDashboard();
+  }
+
+  async function toggleVolumeBulb(ip, enabled) {
+      const device = allDevices.find(d => d.ip === ip);
+      if (!device) return;
+      device.disableVolumeBulb = !enabled;
+      await homebridge.updatePluginConfig(pluginConfig);
+      await homebridge.savePluginConfig();
   }
 
   function hideCustomForm(ip) {

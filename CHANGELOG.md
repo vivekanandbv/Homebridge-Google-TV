@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4-beta.5] - 2026-09-18
+
+### Fixed
+- **Prevent Phantom Device Discovery (#3)**: Restricted background mDNS discovery to explicitly configured TVs in settings. Unconfigured network Cast devices (e.g. AV receivers, Nest speakers) are no longer automatically added or published.
+- **Orphaned Accessory Cache Purge**: Automatically unregisters cached accessories that do not match currently configured devices on startup.
+
+### Added
+- **Option to Disable Volume Dimmer Lightbulb (#2)**: Added `disableVolumeBulb` configuration setting and UI toggle per TV to prevent creation of the playback/volume lightbulb accessory in HomeKit.
+
 ## [1.1.4-beta.4] - 2026-09-17
 
 ### Fixed

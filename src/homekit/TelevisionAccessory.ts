@@ -26,7 +26,7 @@ const appPackageMap: { [key: string]: { package: string, type: number, key?: num
 export class TelevisionAccessory {
   private tvService: Service;
   private speakerService: Service;
-  private bulbService: Service;
+  private bulbService?: Service;
   private castClient: CastClient;
   private androidTVClient: AndroidTVClient;
   private adbClient?: ADBClient;
@@ -38,7 +38,7 @@ export class TelevisionAccessory {
   constructor(
     private readonly platform: ADBCastPlatform,
     private readonly tvAccessory: PlatformAccessory,
-    private readonly bulbAccessory: PlatformAccessory,
+    private readonly bulbAccessory: PlatformAccessory | undefined,
     ip: string,
   ) {
     const devices = this.platform.config.devices || [];
@@ -83,19 +83,20 @@ export class TelevisionAccessory {
     });
 
     const tvId = tvAccessory.context.device?.id || `ADBCast-${ip}`;
-    const bulbId = bulbAccessory.context.device?.id || `ADBCast-Vol-${ip}`;
     const tvName = tvAccessory.context.device?.name || 'Google TV';
-    const bulbName = bulbAccessory.context.device?.name || `${tvName} Volume`;
 
     this.tvAccessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Google')
       .setCharacteristic(this.platform.Characteristic.Model, 'Chromecast HD TV')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, tvId);
 
-    this.bulbAccessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Google')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Volume Dimmer Lightbulb')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, bulbId);
+    if (this.bulbAccessory) {
+      const bulbId = this.bulbAccessory.context.device?.id || `ADBCast-Vol-${ip}`;
+      this.bulbAccessory.getService(this.platform.Service.AccessoryInformation)!
+        .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Google')
+        .setCharacteristic(this.platform.Characteristic.Model, 'Volume Dimmer Lightbulb')
+        .setCharacteristic(this.platform.Characteristic.SerialNumber, bulbId);
+    }
 
     // 1. Setup primary Television Service on the TV Accessory
     this.tvService = this.tvAccessory.getService(this.platform.Service.Television)
@@ -172,43 +173,48 @@ export class TelevisionAccessory {
 
     this.setupInputSources();
 
-    // 3. Setup the volume/playback Lightbulb service on the Bulb Accessory
-    this.bulbService = this.bulbAccessory.getService(this.platform.Service.Lightbulb)
-      || this.bulbAccessory.addService(this.platform.Service.Lightbulb, bulbName);
+    // 3. Setup the volume/playback Lightbulb service on the Bulb Accessory (if enabled)
+    if (this.bulbAccessory) {
+      const bulbName = this.bulbAccessory.context.device?.name || `${tvName} Volume`;
+      this.bulbService = this.bulbAccessory.getService(this.platform.Service.Lightbulb)
+        || this.bulbAccessory.addService(this.platform.Service.Lightbulb, bulbName);
 
-    this.bulbService.getCharacteristic(this.platform.Characteristic.On)
-      .onSet(async (value) => {
-        this.platform.log.info(`[Volume Bulb] Set Play/Pause -> ${value ? 'PLAY' : 'PAUSE'}`);
-        await this.mediaStateManager.setPlayPause(value as boolean);
-      })
-      .onGet(async () => {
-        const state = this.mediaStateManager.getResolvedPlaybackState();
-        return state.state === 'PLAYING';
-      });
+      this.bulbService.getCharacteristic(this.platform.Characteristic.On)
+        .onSet(async (value) => {
+          this.platform.log.info(`[Volume Bulb] Set Play/Pause -> ${value ? 'PLAY' : 'PAUSE'}`);
+          await this.mediaStateManager.setPlayPause(value as boolean);
+        })
+        .onGet(async () => {
+          const state = this.mediaStateManager.getResolvedPlaybackState();
+          return state.state === 'PLAYING';
+        });
 
-    this.bulbService.getCharacteristic(this.platform.Characteristic.Brightness)
-      .onSet(async (value) => {
-        this.platform.log.info(`[Volume Bulb] Set Volume -> ${value}%`);
-        await this.castClient.setVolume((value as number) / 100);
-      })
-      .onGet(async () => {
+      this.bulbService.getCharacteristic(this.platform.Characteristic.Brightness)
+        .onSet(async (value) => {
+          this.platform.log.info(`[Volume Bulb] Set Volume -> ${value}%`);
+          await this.castClient.setVolume((value as number) / 100);
+        })
+        .onGet(async () => {
+          try {
+            const vol = await this.castClient.getVolume();
+            if (vol && typeof vol.level === 'number') {
+              return Math.round(vol.level * 100);
+            }
+          } catch { /* ignore */ }
+          return 0;
+        });
+
+      // 4. Sync media state updates to the Bulb accessory
+      this.mediaStateManager.on('state_changed', () => {
         try {
-          const vol = await this.castClient.getVolume();
-          if (vol && typeof vol.level === 'number') {
-            return Math.round(vol.level * 100);
+          if (this.bulbService) {
+            const mediaState = this.mediaStateManager.getResolvedPlaybackState();
+            this.platform.log.info(`[PlaybackState] Resolved: ${mediaState.state} (Source: ${mediaState.source})`);
+            this.bulbService.updateCharacteristic(this.platform.Characteristic.On, mediaState.state === 'PLAYING');
           }
         } catch { /* ignore */ }
-        return 0;
       });
-
-    // 4. Sync media state updates to the Bulb accessory (so it responds to physical remote clicks)
-    this.mediaStateManager.on('state_changed', () => {
-      try {
-        const mediaState = this.mediaStateManager.getResolvedPlaybackState();
-        this.platform.log.info(`[PlaybackState] Resolved: ${mediaState.state} (Source: ${mediaState.source})`);
-        this.bulbService.updateCharacteristic(this.platform.Characteristic.On, mediaState.state === 'PLAYING');
-      } catch { /* ignore */ }
-    });
+    }
 
     this.connect().catch((err) => {
       this.platform.log.debug(`[TelevisionAccessory] Initial connect error: ${err?.message || err}`);
@@ -386,17 +392,19 @@ export class TelevisionAccessory {
       return;
     }
     
-    try {
-      const vol = await this.castClient.getVolume();
-      if (vol && typeof vol.level === 'number') {
-        this.bulbService.updateCharacteristic(this.platform.Characteristic.Brightness, Math.round(vol.level * 100));
-      }
-    } catch { /* ignore */ }
+    if (this.bulbService) {
+      try {
+        const vol = await this.castClient.getVolume();
+        if (vol && typeof vol.level === 'number') {
+          this.bulbService.updateCharacteristic(this.platform.Characteristic.Brightness, Math.round(vol.level * 100));
+        }
+      } catch { /* ignore */ }
 
-    try {
-      const mediaState = this.mediaStateManager.getResolvedPlaybackState();
-      this.bulbService.updateCharacteristic(this.platform.Characteristic.On, mediaState.state === 'PLAYING');
-    } catch { /* ignore */ }
+      try {
+        const mediaState = this.mediaStateManager.getResolvedPlaybackState();
+        this.bulbService.updateCharacteristic(this.platform.Characteristic.On, mediaState.state === 'PLAYING');
+      } catch { /* ignore */ }
+    }
   }
 
   getPreviousIp(): string {
@@ -413,7 +421,9 @@ export class TelevisionAccessory {
     
     // Update internal context
     this.tvAccessory.context.device.ip = newIp;
-    this.bulbAccessory.context.device.ip = newIp;
+    if (this.bulbAccessory) {
+      this.bulbAccessory.context.device.ip = newIp;
+    }
 
     // Update Clients
     this.castClient.ip = newIp;
