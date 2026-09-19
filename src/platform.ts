@@ -31,14 +31,12 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
       const devices = this.config.devices || [];
       const validBulbUuids = new Set<string>();
 
-      // 1. Identify all valid lightbulb UUIDs for configured devices
+      // 1. Identify all valid lightbulb UUIDs for configured devices with ADB enabled
       for (const device of devices) {
-        if (device.ip) {
+        if (device.ip && device.adbIpPort && !device.disableVolumeBulb) {
           const deviceId = device.id || (device.ip + '_static');
           const bulbUuid = this.api.hap.uuid.generate(deviceId + '_volbulb_v1');
-          if (!device.disableVolumeBulb) {
-            validBulbUuids.add(bulbUuid);
-          }
+          validBulbUuids.add(bulbUuid);
         }
       }
 
@@ -96,9 +94,9 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
     const tvAccessory = new this.api.platformAccessory(displayName, tvUuid, this.api.hap.Categories.TELEVISION);
     tvAccessory.context.device = { id: deviceId, name: displayName, ip: device.ip };
 
-    // 2. Setup the Volume Dimmer Lightbulb (Bridged) if enabled
+    // 2. Setup the Volume Dimmer Lightbulb (Bridged) only if ADB is configured and not disabled
     let bulbAccessory: PlatformAccessory | undefined;
-    if (!device.disableVolumeBulb) {
+    if (device.adbIpPort && !device.disableVolumeBulb) {
       const bulbUuid = this.api.hap.uuid.generate(deviceId + '_volbulb_v1');
       bulbAccessory = this.accessories.get(bulbUuid);
 

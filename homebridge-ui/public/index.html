@@ -553,19 +553,29 @@
       currentDevice = { ip: ip, name: 'TV' };
       showStep('step-loading');
       document.querySelector('#step-loading div.mt-3').innerText = 'Requesting PIN from TV...';
+      
+      const reqTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Pairing timed out. Ensure the TV is on and connected to your network.')), 12000)
+      );
+
       try {
-          const res = await homebridge.request('/start-remote-pairing', { ip: ip });
-          if (res.success) {
+          const res = await Promise.race([
+            homebridge.request('/start-remote-pairing', { ip: ip }),
+            reqTimeout
+          ]);
+          if (res && res.success) {
+              document.getElementById('remote-pin').value = '';
               showStep('step-remote');
           } else {
-              homebridge.toast.error(res.message || 'Failed to request PIN from TV', 'Remote Pairing');
+              homebridge.toast.error((res && res.message) || 'Failed to request PIN from TV', 'Remote Pairing');
               showDashboard();
           }
       } catch (e) {
-          homebridge.toast.error(e.message, 'Error');
+          homebridge.toast.error(e.message || 'Remote pairing failed', 'Error');
           showDashboard();
+      } finally {
+          document.querySelector('#step-loading div.mt-3').innerText = 'Scanning your network for TVs...';
       }
-      document.querySelector('#step-loading div.mt-3').innerText = 'Scanning your network for TVs...';
   }
 
   function showStep(id) {

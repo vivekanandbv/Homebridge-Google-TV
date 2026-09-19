@@ -281,6 +281,25 @@ class PluginUiServer extends HomebridgePluginUiServer {
       await new Promise((r) => setTimeout(r, 400));
     }
     return new Promise((resolve) => {
+      let resolved = false;
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          if (this.currentRemote) {
+            try {
+              this.currentRemote.stop();
+            } catch {
+              /* ignore */
+            }
+            this.currentRemote = null;
+          }
+          resolve({
+            success: false,
+            message: 'Pairing request timed out. Ensure the TV is on, on the same Wi-Fi network, and not in deep sleep.',
+          });
+        }
+      }, 10000);
+
       try {
         const remote = new androidtvRemote.AndroidRemote(ip, {
           pairing_port: 6467,
@@ -292,21 +311,37 @@ class PluginUiServer extends HomebridgePluginUiServer {
         this.currentRemote = remote;
 
         remote.on('secret', () => {
-          resolve({ success: true });
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            resolve({ success: true });
+          }
         });
 
         remote.on('error', (err) => {
-          this.currentRemote = null;
-          resolve({ success: false, message: err.toString() });
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            this.currentRemote = null;
+            resolve({ success: false, message: err?.message || err?.toString() || 'Pairing error' });
+          }
         });
 
         remote.start().catch((err) => {
-          this.currentRemote = null;
-          resolve({ success: false, message: err.toString() });
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            this.currentRemote = null;
+            resolve({ success: false, message: err?.message || err?.toString() || 'Failed to connect to TV port 6467' });
+          }
         });
       } catch (e) {
-        this.currentRemote = null;
-        resolve({ success: false, message: e.message });
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          this.currentRemote = null;
+          resolve({ success: false, message: e.message });
+        }
       }
     });
   }

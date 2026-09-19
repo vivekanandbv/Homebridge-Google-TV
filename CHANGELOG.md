@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4-beta.8] - 2026-09-19
+
+### Fixed
+- **Volume Lightbulb ADB Requirement (#3)**: Volume/Playback Dimmer Lightbulb accessory is now only registered and created when ADB is explicitly configured (`adbIpPort`), preventing playback accessories from appearing before ADB pairing is completed.
+- **Remote Pairing Timeout Guard**: Added strict 10s socket connection timeouts on port 6467 and client-side race guards in the plugin UI to prevent endless loading loops when requesting a pairing PIN.
+
 ## [1.1.4-beta.7] - 2026-09-19
 
 ### Changed
