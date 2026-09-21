@@ -122,32 +122,51 @@ export class TelevisionAccessory {
       .onSet(async (value) => {
         this.platform.log.info(`[TV Power] Set Active -> ${value === 1 ? 'ON' : 'OFF'}`);
         const turnOn = value === 1;
-        let powerDone = false;
+        let commandSent = false;
 
         if (this.androidTVClient.isRemoteConnected) {
           try {
             if (turnOn) {
-              powerDone = await this.androidTVClient.powerOn();
+              commandSent = await this.androidTVClient.powerOn();
             } else {
-              powerDone = await this.androidTVClient.powerOff();
+              commandSent = await this.androidTVClient.powerOff();
             }
           } catch (e: any) {
             this.platform.log.debug(`[TV Power] androidTVClient power failed: ${e?.message || e}`);
           }
         }
 
-        if (!powerDone && this.adbClient) {
+        if (!commandSent && this.adbClient) {
           this.platform.log.info(`[TV Power] Remote unavailable. Using ADB fallback to power ${turnOn ? 'ON' : 'OFF'}`);
           if (turnOn) {
-            await this.adbClient.powerOn();
+            commandSent = await this.adbClient.powerOn();
           } else {
-            await this.adbClient.powerOff();
+            commandSent = await this.adbClient.powerOff();
           }
+        }
+
+        if (!commandSent) {
+          this.platform.log.warn('[TV Power] TV is unreachable (neither Remote nor ADB responded). Reverting power switch in HomeKit.');
+          this.isPowerOn = false;
+          setTimeout(() => {
+            this.tvService.updateCharacteristic(this.platform.Characteristic.Active, 0);
+          }, 500);
+          return;
         }
 
         this.isPowerOn = turnOn;
       })
       .onGet(async () => {
+        if (this.androidTVClient.isRemoteConnected) {
+          return this.androidTVClient.isPowerOn ? 1 : 0;
+        }
+        if (this.adbClient && this.adbClient.isConnected) {
+          const adbPower = await this.adbClient.getPowerState();
+          if (adbPower !== null) {
+            this.isPowerOn = adbPower;
+            return adbPower ? 1 : 0;
+          }
+        }
         return this.isPowerOn ? 1 : 0;
       });
 
@@ -465,6 +484,15 @@ export class TelevisionAccessory {
   }
 
   async updateState() {
+    // Verify true power status if remote is not directly pushing events
+    if (this.adbClient && this.adbClient.isConnected && !this.androidTVClient.isRemoteConnected) {
+      const adbPower = await this.adbClient.getPowerState();
+      if (adbPower !== null && adbPower !== this.isPowerOn) {
+        this.isPowerOn = adbPower;
+        this.tvService.updateCharacteristic(this.platform.Characteristic.Active, adbPower ? 1 : 0);
+      }
+    }
+
     if (!this.isPowerOn) {
       return;
     }

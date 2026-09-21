@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4-beta.9] - 2026-09-21
+
+### Fixed
+- **Verified Power State & Reversion Guard (#4)**: Removed synthetic/optimistic power events. HomeKit power state now reflects actual verified TV power status. If the TV is unreachable (`EHOSTUNREACH`), the HomeKit switch automatically snaps back to OFF instead of falsely showing ON.
+- **Live Power Status via ADB**: Added real-time wakefulness checks (`dumpsys power`) via ADB when the TV is offline from the Android TV Remote protocol.
+
+### Documentation
+- **IP Stability & MAC Randomization Guide**: Added setup documentation on disabling Android TV MAC address randomization ("Use device MAC") and configuring direct Static IPs to prevent broken DHCP reservations.
+
 ## [1.1.4-beta.8] - 2026-09-19
 
 ### Fixed

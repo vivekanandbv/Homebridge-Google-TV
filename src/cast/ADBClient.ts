@@ -471,6 +471,35 @@ The plugin will continue without ADB until it becomes available.`,
     }
   }
 
+  async getPowerState(): Promise<boolean | null> {
+    try {
+      if (!this.isConnected) {
+        await this.connect();
+      }
+      if (!this.isConnected) {
+        return null;
+      }
+      const target = this.targetIdentifier || this.endpoint;
+      const { stdout } = await execAsync(
+        `"${adbPath}" -s ${target} shell dumpsys power | grep -E "mWakefulness=|Display Power: state="`,
+        { timeout: 3000 },
+      );
+      if (stdout.includes('mWakefulness=Awake') || stdout.includes('state=ON')) {
+        return true;
+      }
+      if (
+        stdout.includes('mWakefulness=Asleep') ||
+        stdout.includes('mWakefulness=Dozing') ||
+        stdout.includes('state=OFF')
+      ) {
+        return false;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   startPolling(intervalMs: number = 5000) {
     this.stopPolling();
 

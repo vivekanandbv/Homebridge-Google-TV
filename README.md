@@ -51,7 +51,16 @@ Each configured TV exposes **two distinct tiles** in your Apple Home App:
 
 ## Setup & Pairing
 
-> **Note on Network Changes**: This plugin features **Dynamic IP Tracking**. If your router changes your TV's IP address, the plugin will seamlessly auto-detect the new IP using its permanent Cast ID and reconnect. However, **Android disables Wireless Debugging whenever your IP changes**. For the absolute best experience (to prevent you from having to manually toggle Wireless Debugging back on), **reserve a Static DHCP IP address for your TV in your router**.
+> **Note on Network Changes & IP Stability**: This plugin features **Dynamic IP Tracking**. If your router changes your TV's IP address, the plugin will auto-detect the new IP using its permanent Cast ID and reconnect. However, **Android disables Wireless Debugging whenever your IP changes**. For the absolute best stability, keep your TV's IP address permanent using one of the two methods below:
+>
+> 1. **Option A: Router DHCP Reservation (Disable MAC Randomization)**:
+>    * Android 12+ / Google TV enables *"Randomized MAC"* by default, which can cause router DHCP reservations to fail or reset across network changes.
+>    * On your TV, go to: **Settings** → **Network & Internet** → select your **Wi-Fi Network** → **Privacy** (or Advanced) → switch from *"Use randomized MAC"* to **"Use device MAC"**.
+>    * Note the hardware MAC address shown and bind your chosen IP (e.g. `192.168.1.59`) to that MAC address in your router.
+>
+> 2. **Option B: Set Static IP Directly on the TV**:
+>    * On your TV, go to: **Settings** → **Network & Internet** → select your **Wi-Fi Network** → scroll to **IP Settings** → change from **DHCP** to **Static**.
+>    * Enter your IP address (e.g. `192.168.1.59`), Gateway (e.g. `192.168.1.1`), Network prefix length (`24`), and DNS (`192.168.1.1` or `8.8.8.8`). This permanently locks the IP on the TV itself.
 
 ### Remote and TV pairing ###
 

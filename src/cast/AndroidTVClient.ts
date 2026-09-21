@@ -133,12 +133,7 @@ export class AndroidTVClient extends EventEmitter {
       return false;
     }
     try {
-      if (!this.isPowerOnState) {
-        await this.sendKey(26); // KEYCODE_POWER (Toggle ON)
-        this.isPowerOnState = true;
-        this.emit('powered', true);
-      }
-      return true;
+      return await this.sendKey(26); // KEYCODE_POWER
     } catch {
       return false;
     }
@@ -149,12 +144,7 @@ export class AndroidTVClient extends EventEmitter {
       return false;
     }
     try {
-      if (this.isPowerOnState) {
-        await this.sendKey(26); // KEYCODE_POWER (Toggle OFF)
-        this.isPowerOnState = false;
-        this.emit('powered', false);
-      }
-      return true;
+      return await this.sendKey(26); // KEYCODE_POWER
     } catch {
       return false;
     }
