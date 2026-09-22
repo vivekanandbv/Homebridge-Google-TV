@@ -2,74 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.4-beta.9] - 2026-09-21
+## [1.1.4] - 2026-09-22
+
+### Added
+- **Option to Disable Volume Dimmer Lightbulb (#2)**: Added per-TV configuration toggle (`disableVolumeBulb`) and settings UI checkbox to prevent the separate volume/playback lightbulb accessory from appearing in HomeKit.
+- **Dedicated Re-pair Remote Action**: Added a 1-click **"(Re-pair)"** action directly on TV cards in the Homebridge settings UI with socket teardown isolation.
 
 ### Fixed
-- **Verified Power State & Reversion Guard (#4)**: Removed synthetic/optimistic power events. HomeKit power state now reflects actual verified TV power status. If the TV is unreachable (`EHOSTUNREACH`), the HomeKit switch automatically snaps back to OFF instead of falsely showing ON.
-- **Live Power Status via ADB**: Added real-time wakefulness checks (`dumpsys power`) via ADB when the TV is offline from the Android TV Remote protocol.
+- **Verified Power State & Reversion Guard (#4)**: Removed synthetic/optimistic power state mutations. If the TV is in deep sleep or unreachable (`EHOSTUNREACH`), the HomeKit switch automatically snaps back to **OFF** instead of falsely showing ON.
+- **Volume Lightbulb ADB Requirement (#3)**: Restricted the Volume/Playback Dimmer Lightbulb to only appear when ADB is explicitly configured (`adbIpPort`), automatically purging orphan lightbulbs for Cast-only setups.
+- **Prevent Phantom Device Discovery (#3)**: Restricted mDNS discovery and accessory publishing strictly to configured TVs in settings, ignoring unconfigured LAN Cast devices (e.g. AV receivers, Nest speakers).
+- **ADB Fallback for Remote Keys & Power**: Added automatic ADB fallback (`adb shell input keyevent`) for all HomeKit remote buttons (D-pad arrows, Select, Back, Play/Pause, Volume) and Power (`224` wakeup / `223` sleep) whenever the Android TV Remote SSL connection is disconnected or un-paired.
+- **Cast Protocol Heartbeat & Keep-Alive**: Added active 15-second heartbeat PING intervals to prevent Chromecast devices from dropping idle TLS sockets during standby.
+- **RemoteManager Uncaught Exception Guard**: Patched internal `RemoteManager` EventEmitter error handling to eliminate `ERR_UNHANDLED_ERROR` uncaught exceptions when Google TV rejects a certificate handshake (`code1: 622`).
+- **Synology DSM & Container Compatibility**: Added non-root `sudo -n` fallback when provisioning `android-tools` via `apk` (Alpine Linux) and `apt-get` (Debian/Ubuntu), wrapped mDNS UDP sockets, and handled restricted filesystem permissions (`EACCES`).
+- **Child Bridge Stability**: Added global rejection and exception handlers, direct dependency declarations (`castv2`, `protobufjs`), and synchronous protobuf preloading to prevent child bridge process termination.
+- **Remote Pairing Timeout Guard**: Added strict 10s socket timeouts on port 6467 and client-side race guards in the plugin UI to eliminate endless loading loops during remote pairing.
+
+### Changed
+- **Optimized Console Logging**: Silenced routine 3-second background ADB media polling logs and rate-limited steady-state playback resolution logs to once every 2 minutes (or immediately on state change).
 
 ### Documentation
 - **IP Stability & MAC Randomization Guide**: Added setup documentation on disabling Android TV MAC address randomization ("Use device MAC") and configuring direct Static IPs to prevent broken DHCP reservations.
-
-## [1.1.4-beta.8] - 2026-09-19
-
-### Fixed
-- **Volume Lightbulb ADB Requirement (#3)**: Volume/Playback Dimmer Lightbulb accessory is now only registered and created when ADB is explicitly configured (`adbIpPort`), preventing playback accessories from appearing before ADB pairing is completed.
-- **Remote Pairing Timeout Guard**: Added strict 10s socket connection timeouts on port 6467 and client-side race guards in the plugin UI to prevent endless loading loops when requesting a pairing PIN.
-
-## [1.1.4-beta.7] - 2026-09-19
-
-### Changed
-- **Optimized Logging & Reduced Console Noise**: Silenced routine 3-second background ADB media polling logs and rate-limited steady-state playback resolution logs to at most once every 2 minutes (or immediately on state changes).
-- **Smart Power Log Filtering**: Power state change logs are now only emitted when the TV actually transitions between ON and OFF states.
-
-## [1.1.4-beta.6] - 2026-09-19
-
-### Fixed
-- **ADB Fallback for Remote Keys & Power**: Added automatic ADB fallback (`adb shell input keyevent`) for all HomeKit remote buttons (D-pad navigation, select, back, play/pause) and power commands (`224` wakeup / `223` sleep) whenever the Android TV Remote SSL connection is disconnected or un-paired.
-- **RemoteManager Uncaught Exception Guard**: Patched internal `RemoteManager` EventEmitter error handling to eliminate `ERR_UNHANDLED_ERROR` uncaught exceptions when Google TV returns `code1: 622` (`remoteError`).
-- **Certificate PEM Validation Guard**: Added validation to verify stored client certificates before initiating TLS connection on port 6466, preventing handshake rejections from corrupted or empty config entries.
-- **Enhanced Remote Re-pairing**: Added a 1-click **"Re-pair Remote"** action on the plugin dashboard and improved socket teardown isolation during pairing attempts.
-
-## [1.1.4-beta.5] - 2026-09-18
-
-### Fixed
-- **Prevent Phantom Device Discovery (#3)**: Restricted background mDNS discovery to explicitly configured TVs in settings. Unconfigured network Cast devices (e.g. AV receivers, Nest speakers) are no longer automatically added or published.
-- **Orphaned Accessory Cache Purge**: Automatically unregisters cached accessories that do not match currently configured devices on startup.
-
-### Added
-- **Option to Disable Volume Dimmer Lightbulb (#2)**: Added `disableVolumeBulb` configuration setting and UI toggle per TV to prevent creation of the playback/volume lightbulb accessory in HomeKit.
-
-## [1.1.4-beta.4] - 2026-09-17
-
-### Fixed
-- **Cast Heartbeat & Keep-Alive**: Added active 15-second heartbeat PING intervals on `urn:x-cast:com.google.cast.tp.heartbeat` to prevent Chromecast from closing idle TLS sockets during standby.
-- **Timeout & Reconnect Resilience**: Guarded Cast RPC calls (`getVolume`, `getStatus`) against socket timeout hangs during standby/semi-sleep state.
-- **Network Standby Provisioning**: Configured TV Wi-Fi sleep policy and stay-on-plugged settings via ADB to maintain connection.
-
-## [1.1.4-beta.3] - 2026-09-17
-
-### Fixed
-- **HomeKit Accessory Visibility**: Removed unintended auto-injection of `_bridge` (Child Bridge) on ADB pairing which moved the plugin into an un-paired bridge state.
-- **Apple Home Setup Guidance**: Added explicit in-UI guidance explaining how to pair the Television External Accessory in the Apple Home app via **+** → **Add Accessory** → **More options...** with the Homebridge PIN.
-
-## [1.1.4-beta.2] - 2026-09-17
-
-### Fixed
-- **Child Bridge Crash Guard**: Added global rejection and exception handlers to the child bridge process to prevent unhandled errors from terminating the process (`Child bridge ended (code 1, signal null)`).
-- **Isolated ADB Media Polling**: Wrapped periodic ADB media polling in isolated exception handlers to eliminate unhandled promise rejections during background state refresh.
-- **Container Package Provisioning**: Added non-root `sudo -n` fallback when installing `android-tools` via `apk` (Alpine Linux) and `apt-get` (Debian/Ubuntu) in containerized environments like Synology DSM Container Manager.
-- **Safe Directory Operations**: Handled permissions errors (`EACCES`) gracefully during platform-tools directory initialization and stream file writing on restricted filesystems.
-- **mDNS Socket Guard**: Added error handlers to `Bonjour` service and discovery browsers to prevent unhandled multicast UDP socket errors in Docker containers.
-- **ADB Command Timeouts**: Added execution timeouts across all ADB discovery, connect, and media session commands to prevent daemon lockups from blocking the event loop.
-
-## [1.1.4-beta.1] - 2026-09-16
-
-### Fixed
-- **Child Bridge Stability**: Added direct `castv2` and `protobufjs` dependency declarations to prevent module resolution failures in child bridge processes.
-- **Safe Preloading**: Wrapped protobuf preloading in resilient exception handling so plugin startup never terminates prematurely.
-- **Cast Protocol Stability**: Synchronously pre-load `cast_channel.proto` to eliminate the asynchronous `Error: extension not loaded yet` race condition during initial Cast client connection.
-- **Multi-Architecture Support**: Gracefully handle Linux ARM/AArch64 architectures and prevent incompatible x86_64 binary extraction.
 
 ## [1.1.3] - 2026-09-15
 
