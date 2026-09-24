@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.1-beta.1] - 2026-09-24
+## [1.2.1-beta.2] - 2026-09-24
 
 ### Added
 - **HDMI & Hardware Source Switching**: Added native Apple Home input switching support for HDMI 1, HDMI 2, HDMI 3, HDMI 4, Composite 1/2, Component 1/2, Live TV, and TV Input Selector.
