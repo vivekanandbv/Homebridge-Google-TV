@@ -10,8 +10,26 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
-const appPackageMap: { [key: string]: { package: string, type: number, key?: number } } = {
+interface InputDefinition {
+  package?: string;
+  type: number;
+  key?: number;
+}
+
+// Input and App catalog.
+// Hardware and HDMI input keycode mappings inspired by Tharun P Karun (homebridge-androidtv-ultimate).
+const appPackageMap: { [key: string]: InputDefinition } = {
   'Home': { package: 'com.google.android.apps.tv.referencelauncher', type: 1, key: 3 },
+  'HDMI 1': { type: 3, key: 243 }, // KEYCODE_TV_INPUT_HDMI_1
+  'HDMI 2': { type: 3, key: 244 }, // KEYCODE_TV_INPUT_HDMI_2
+  'HDMI 3': { type: 3, key: 245 }, // KEYCODE_TV_INPUT_HDMI_3
+  'HDMI 4': { type: 3, key: 246 }, // KEYCODE_TV_INPUT_HDMI_4
+  'Composite 1': { type: 4, key: 247 }, // KEYCODE_TV_INPUT_COMPOSITE_1
+  'Composite 2': { type: 4, key: 248 }, // KEYCODE_TV_INPUT_COMPOSITE_2
+  'Component 1': { type: 6, key: 249 }, // KEYCODE_TV_INPUT_COMPONENT_1
+  'Component 2': { type: 6, key: 250 }, // KEYCODE_TV_INPUT_COMPONENT_2
+  'Live TV': { type: 2, key: 170 }, // KEYCODE_TV
+  'TV Input': { type: 0, key: 178 }, // KEYCODE_TV_INPUT
   'YouTube': { package: 'com.google.android.youtube.tv', type: 10 },
   'Netflix': { package: 'com.netflix.ninja', type: 10 },
   'Prime Video': { package: 'com.amazon.amazonvideo.livingroom', type: 10 },
@@ -303,7 +321,7 @@ export class TelevisionAccessory {
     this.inputServices = [];
 
     // Merge standard appPackageMap with configured customApps
-    const localAppMap = { ...appPackageMap };
+    const localAppMap: { [key: string]: InputDefinition } = { ...appPackageMap };
     for (const app of customApps) {
       localAppMap[app.name] = { package: app.package, type: 10 }; // APPLICATION = 10
     }
@@ -321,7 +339,9 @@ export class TelevisionAccessory {
         .setCharacteristic(this.platform.Characteristic.Identifier, id)
         .setCharacteristic(this.platform.Characteristic.ConfiguredName, inputName)
         .setCharacteristic(this.platform.Characteristic.IsConfigured, this.platform.Characteristic.IsConfigured.CONFIGURED)
-        .setCharacteristic(this.platform.Characteristic.InputSourceType, target.type);
+        .setCharacteristic(this.platform.Characteristic.InputSourceType, target.type)
+        .setCharacteristic(this.platform.Characteristic.CurrentVisibilityState, this.platform.Characteristic.CurrentVisibilityState.SHOWN)
+        .setCharacteristic(this.platform.Characteristic.TargetVisibilityState, this.platform.Characteristic.TargetVisibilityState.SHOWN);
 
       this.tvService.addLinkedService(inputService);
       this.inputServices.push(inputService);
@@ -352,20 +372,24 @@ export class TelevisionAccessory {
     }
 
     try {
-      if (inputName === 'Home') {
-        await this.sendKey(3); // Go Home
+      if (target.key !== undefined) {
+        this.platform.log.info(`[TV Input] Switching input to ${inputName} (Keycode: ${target.key})`);
+        await this.sendKey(target.key);
         return;
       }
       
-      if (this.adbClient && this.adbClient.isConnected && this.adbClient.targetIdentifier) {
-        this.platform.log.info(`[TV Input] Launching app ${inputName} (${target.package}) over ADB`);
-        const monkeyCmd = `"${adbPath}" -s ${this.adbClient.targetIdentifier} shell monkey -p ${target.package} -c android.intent.category.LEANBACK_LAUNCHER 1`;
-        await execAsync(monkeyCmd, { timeout: 5000 });
-      } else {
-        this.platform.log.warn(`[TV Input] ADB not connected, cannot launch ${inputName}`);
+      if (target.package) {
+        if (this.adbClient && this.adbClient.isConnected && this.adbClient.targetIdentifier) {
+          this.platform.log.info(`[TV Input] Launching app ${inputName} (${target.package}) over ADB`);
+          const monkeyCmd = `"${adbPath}" -s ${this.adbClient.targetIdentifier} ` +
+            `shell monkey -p ${target.package} -c android.intent.category.LEANBACK_LAUNCHER 1`;
+          await execAsync(monkeyCmd, { timeout: 5000 });
+        } else {
+          this.platform.log.warn(`[TV Input] ADB not connected, cannot launch ${inputName}`);
+        }
       }
     } catch (e: any) {
-      this.platform.log.error(`[TV Input] Failed to launch app ${inputName}: ${e.message}`);
+      this.platform.log.error(`[TV Input] Failed to launch ${inputName}: ${e.message}`);
     }
   }
 

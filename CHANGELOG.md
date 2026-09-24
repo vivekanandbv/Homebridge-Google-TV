@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1-beta.1] - 2026-09-24
+
+### Added
+- **HDMI & Hardware Source Switching**: Added native Apple Home input switching support for HDMI 1, HDMI 2, HDMI 3, HDMI 4, Composite 1/2, Component 1/2, Live TV, and TV Input Selector.
+- **Direct Remote & ADB Keycode Dispatch**: Dispatches standard Android hardware keycodes (`KEYCODE_TV_INPUT_HDMI_1..4`, `KEYCODE_TV`, `KEYCODE_TV_INPUT`) seamlessly via Android TV Remote Protocol v2 or ADB keyevent fallback.
+- **Custom Settings UI Input Selector**: Extended the visual TV configuration dashboard to include all HDMI and hardware inputs in the standard input selector dropdown for easy 1-click addition/removal.
+- **Credits & Attribution**: Due credit and thanks to **Tharun P Karun** ([homebridge-androidtv-ultimate](https://github.com/tharunpkarun/homebridge-androidtv-ultimate)) for the Android TV hardware input keycode mapping architecture.
+
 ## [1.1.4] - 2026-09-22
 
 ### Added

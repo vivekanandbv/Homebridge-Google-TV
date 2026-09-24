@@ -54,6 +54,16 @@
                 "type": "string",
                 "enum": [
                   "Home",
+                  "HDMI 1",
+                  "HDMI 2",
+                  "HDMI 3",
+                  "HDMI 4",
+                  "Composite 1",
+                  "Composite 2",
+                  "Component 1",
+                  "Component 2",
+                  "Live TV",
+                  "TV Input",
                   "YouTube",
                   "Netflix",
                   "Prime Video",
@@ -65,7 +75,12 @@
                   "Plex"
                 ]
               },
-              "default": ["Home", "YouTube", "Netflix", "Prime Video"]
+              "default": [
+                "Home",
+                "YouTube",
+                "Netflix",
+                "Prime Video"
+              ]
             },
             "customApps": {
               "title": "Custom App Packges",

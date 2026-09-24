@@ -1,5 +1,9 @@
 # Homebridge Google TV
 
+[![GitHub Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?style=flat&logo=github)](https://github.com/sponsors/vivekanandbv)
+[![npm version](https://img.shields.io/npm/v/homebridge-google-tv.svg)](https://www.npmjs.com/package/homebridge-google-tv)
+[![npm downloads](https://img.shields.io/npm/dt/homebridge-google-tv.svg)](https://www.npmjs.com/package/homebridge-google-tv)
+
 An integrated Homebridge plugin that integrates Google Chromecast and Android TV devices into Apple HomeKit with support for remote control widgets, dynamic volume dimmers, input switching, and real-time playback synchronization.
 
 ——
@@ -30,7 +34,7 @@ Each configured TV exposes **two distinct tiles** in your Apple Home App:
 
 * **Native TV UI**: Renders as a native Apple compatible TV accessory. Tapping it opens the power toggle and opening it navigates into the input selector.
 * **Apple TV Remote Widget**: Integrates with the iOS Control Center Remote Widget. You can navigate the screen using directional arrows, select, back, home, and **adjust the TV volume using your iPhone's physical volume buttons**.
-* **Input Switching**: Preloaded with *Home*, *YouTube*, *Netflix*, and *Prime Video*. Selecting an app switches the TV input and opens it instantly.
+* **Input & HDMI Source Switching**: Switch between installed streaming apps (*YouTube*, *Netflix*, *Prime Video*, *Disney+*, *Apple TV*, etc.) as well as physical hardware ports (**HDMI 1**, **HDMI 2**, **HDMI 3**, **HDMI 4**, **Live TV**, **Component**, **Composite**) directly from the Apple Home input selector wheel.
 
 ### 2. The Volume Dimmer Lightbulb (Bridged Accessory)
 
@@ -102,3 +106,18 @@ You can easily add, remove, and configure custom input sources directly from the
      * **Package Name**: The Android package identifier for the app (e.g., `org.xbmc.kodi`).
   3. Click **Add**. The custom app will be registered, enabled, and saved.
 * **Saving changes**: Click **Save** in the settings modal and **Restart Homebridge** to apply the updated input sources wheel in Apple Home!
+
+---
+
+---
+
+## Credits & Acknowledgements
+
+* **Tharun P Karun** ([homebridge-androidtv-ultimate](https://github.com/tharunpkarun/homebridge-androidtv-ultimate)) — for the Android TV hardware input and HDMI keycode mapping architecture.
+* **FoxxMD** ([chromecast-client](https://github.com/FoxxMD/chromecast-client)) — for Google Cast protocol client support.
+
+---
+
+## Support & Sponsorship ❤️
+
+If you enjoy using **Homebridge Google TV** and would like to support continuous development and maintenance, consider [becoming a sponsor on GitHub](https://github.com/sponsors/vivekanandbv)!

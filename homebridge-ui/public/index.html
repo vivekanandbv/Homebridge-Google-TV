@@ -93,7 +93,13 @@
 <div id="step-dashboard" class="step">
   <div class="header-row">
     <h3>Configured TVs</h3>
-    <button class="btn btn-primary btn-sm" onclick="discover()">+ Add TV</button>
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <a href="https://github.com/sponsors/vivekanandbv" target="_blank" rel="noopener noreferrer" class="btn btn-sm" style="background-color: #ea4aaa; color: #ffffff !important; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; font-weight: 500;">
+        <svg height="14" width="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align: text-bottom;"><path d="m8 14.25.345.666a.75.75 0 0 1-.69 0l-.008-.004-.018-.01a7.152 7.152 0 0 1-.31-.17 22.055 22.055 0 0 1-3.434-2.414C2.046 10.73 0 8.35 0 5.5 0 2.836 2.086 1 4.75 1 6.138 1 7.42 1.636 8 2.653 8.58 1.636 9.862 1 11.25 1 13.914 1 16 2.836 16 5.5c0 2.85-2.046 5.23-3.885 6.818a22.064 22.064 0 0 1-3.434 2.414 7.215 7.215 0 0 1-.31.17l-.018.01-.008.004Zm-.004-1.428a20.564 20.564 0 0 0 3.197-2.25c1.656-1.43 3.307-3.518 3.307-5.072 0-1.89-1.455-3-3.25-3-1.18 0-2.28 0.77-2.65 1.87a.75.75 0 0 1-1.41 0C6.73 3.27 5.63 2.5 4.45 2.5 2.655 2.5 1.2 3.61 1.2 5.5c0 1.554 1.651 3.642 3.307 5.072a20.56 20.56 0 0 0 3.197 2.25Z"/></svg>
+        Sponsor
+      </a>
+      <button class="btn btn-primary btn-sm" onclick="discover()">+ Add TV</button>
+    </div>
   </div>
   <div id="configured-devices"></div>
 </div>
@@ -297,7 +303,28 @@
           const customApps = d.customApps || [];
 
           // Standard list
-          const standardApps = ['Home', 'YouTube', 'Netflix', 'Prime Video', 'Disney+', 'Apple TV', 'Hulu', 'HBO Max', 'Spotify', 'Plex'];
+          const standardApps = [
+            'Home',
+            'HDMI 1',
+            'HDMI 2',
+            'HDMI 3',
+            'HDMI 4',
+            'Composite 1',
+            'Composite 2',
+            'Component 1',
+            'Component 2',
+            'Live TV',
+            'TV Input',
+            'YouTube',
+            'Netflix',
+            'Prime Video',
+            'Disney+',
+            'Apple TV',
+            'Hulu',
+            'HBO Max',
+            'Spotify',
+            'Plex'
+          ];
           const availableStandardApps = standardApps.filter(app => !enabledInputs.includes(app));
 
           // Checkboxes for only enabled inputs (unchecking will remove it)
