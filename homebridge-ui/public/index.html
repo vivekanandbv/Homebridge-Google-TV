@@ -366,7 +366,19 @@
               </div>
               <button class="btn btn-danger btn-sm" onclick="handleDelete(this, '${d.ip}')" style="background-color: #d9534f; border-color: #d43f3a; color: white; transition: all 0.2s;">Delete</button>
             </div>
-            <div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+            <div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <div style="font-size: 12px; font-weight: bold; opacity: 0.9;">Apple Home Icon:</div>
+                <div style="font-size: 11px; opacity: 0.6; margin-top: 2px;">Choose how this device appears in the Apple Home app. This changes the icon/category only; it does not change device functionality.</div>
+              </div>
+              <select class="form-control input-sm" style="width: 170px; height: 28px; font-size: 12px; padding: 2px 6px; background-color: #2e2e2e; border-color: #444; color: #fff;" onchange="setDeviceCategory('${d.ip}', this.value)">
+                <option value="TELEVISION" ${(!d.category || d.category === 'TELEVISION') ? 'selected' : ''}>Television</option>
+                <option value="TV_STREAMING_STICK" ${d.category === 'TV_STREAMING_STICK' ? 'selected' : ''}>Streaming Stick</option>
+                <option value="TV_SET_TOP_BOX" ${d.category === 'TV_SET_TOP_BOX' ? 'selected' : ''}>Set-Top Box</option>
+                <option value="APPLE_TV" ${d.category === 'APPLE_TV' ? 'selected' : ''}>Apple TV</option>
+              </select>
+            </div>
+            <div style="margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
               <label style="display: inline-flex; align-items: center; font-weight: normal; cursor: pointer; font-size: 13px; margin-bottom: 8px;">
                 <input type="checkbox" ${d.disableVolumeBulb ? "" : "checked"} style="margin-right: 6px;" onchange="toggleVolumeBulb('${d.ip}', this.checked)" />
                 Enable Volume / Playback Dimmer Lightbulb
@@ -427,6 +439,14 @@
       select.value = '';
       await homebridge.updatePluginConfig(pluginConfig);
       renderDashboard();
+  }
+
+  async function setDeviceCategory(ip, category) {
+      const device = allDevices.find(d => d.ip === ip);
+      if (!device) return;
+      device.category = category;
+      await homebridge.updatePluginConfig(pluginConfig);
+      await homebridge.savePluginConfig();
   }
 
   async function toggleVolumeBulb(ip, enabled) {

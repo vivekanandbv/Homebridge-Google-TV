@@ -80,6 +80,25 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
     this.accessories.set(accessory.UUID, accessory);
   }
 
+  /**
+   * Map config category string to HomeKit Categories value.
+   * Adapted from homebridge-chromecast-google-tv by rubenRP (Apache-2.0 License).
+   * https://github.com/rubenRP/homebridge-chromecast-google-tv
+   */
+  public getCategoryFromConfig(categoryConfig?: string): number {
+    switch (categoryConfig) {
+    case 'TV_STREAMING_STICK':
+      return this.api.hap.Categories.TV_STREAMING_STICK;
+    case 'TV_SET_TOP_BOX':
+      return this.api.hap.Categories.TV_SET_TOP_BOX;
+    case 'APPLE_TV':
+      return this.api.hap.Categories.APPLE_TV;
+    case 'TELEVISION':
+    default:
+      return this.api.hap.Categories.TELEVISION;
+    }
+  }
+
   setupConfiguredDevice(device: any) {
     if (this.activeDevicesByIp.has(device.ip)) {
       return;
@@ -89,10 +108,17 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
     const deviceId = device.id || (device.ip + '_static');
     const displayName = device.name || 'Google TV';
 
-    // 1. Setup the TV Accessory (External)
+    // 1. Setup the TV Accessory (External) with configured category/icon
+    const categoryValue = this.getCategoryFromConfig(device.category);
     const tvUuid = this.api.hap.uuid.generate(deviceId + '_tv_v4');
-    const tvAccessory = new this.api.platformAccessory(displayName, tvUuid, this.api.hap.Categories.TELEVISION);
-    tvAccessory.context.device = { id: deviceId, name: displayName, ip: device.ip };
+    const tvAccessory = new this.api.platformAccessory(displayName, tvUuid, categoryValue);
+    tvAccessory.category = categoryValue;
+    tvAccessory.context.device = {
+      id: deviceId,
+      name: displayName,
+      ip: device.ip,
+      category: device.category || 'TELEVISION',
+    };
 
     // 2. Setup the Volume Dimmer Lightbulb (Bridged) only if ADB is configured and not disabled
     let bulbAccessory: PlatformAccessory | undefined;

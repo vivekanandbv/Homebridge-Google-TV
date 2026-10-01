@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1-beta.3] - 2026-10-01
+
+### Added
+- **Apple Home Icon / Category Selection**: Added configuration option allowing users to choose how the accessory is categorized and displayed in the Apple Home app:
+  - **Television** (`TELEVISION`) — Default
+  - **Streaming Stick** (`TV_STREAMING_STICK`)
+  - **Set-Top Box** (`TV_SET_TOP_BOX`)
+  - **Apple TV** (`APPLE_TV`)
+- **Settings UI & Schema Integration**: Added an "Apple Home Icon" selector dropdown directly inside each TV card in the Homebridge Settings dashboard and configuration schema.
+- **Credits & Attribution**: Credit and thanks to **rubenRP** ([homebridge-chromecast-google-tv](https://github.com/rubenRP/homebridge-chromecast-google-tv)) for the HomeKit accessory category selection architecture.
+
 ## [1.2.1-beta.2] - 2026-09-24
 
 ### Added

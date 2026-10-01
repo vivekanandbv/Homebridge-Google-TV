@@ -109,10 +109,24 @@ You can easily add, remove, and configure custom input sources directly from the
 
 ---
 
+## Apple Home Icon (Device Category)
+
+You can customize the accessory icon displayed in Apple Home without changing any device functionality.
+
+In the **Settings UI**, select your preferred **Apple Home Icon**:
+* **Television** (`TELEVISION`) — Standard TV icon (Default)
+* **Streaming Stick** (`TV_STREAMING_STICK`) — Streaming stick icon (e.g. Chromecast / FireStick)
+* **Set-Top Box** (`TV_SET_TOP_BOX`) — Set-top box / receiver icon
+* **Apple TV** (`APPLE_TV`) — Apple TV icon
+
+> [!NOTE]
+> **Apple Home Icon Caching Caveat**: Because TV accessories in HomeKit are unbridged external accessories, Apple Home caches the accessory category icon when the accessory is first paired. If you change the category on an already-paired TV in HomeKit, you may need to remove the TV from Apple Home and re-pair it to see the updated icon.
+
 ---
 
 ## Credits & Acknowledgements
 
+* **rubenRP** ([homebridge-chromecast-google-tv](https://github.com/rubenRP/homebridge-chromecast-google-tv)) — for the HomeKit accessory category / icon selection architecture.
 * **Tharun P Karun** ([homebridge-androidtv-ultimate](https://github.com/tharunpkarun/homebridge-androidtv-ultimate)) — for the Android TV hardware input and HDMI keycode mapping architecture.
 * **FoxxMD** ([chromecast-client](https://github.com/FoxxMD/chromecast-client)) — for Google Cast protocol client support.
 

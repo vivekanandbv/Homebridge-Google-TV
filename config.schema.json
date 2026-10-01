@@ -98,6 +98,38 @@
                   }
                 }
               }
+            },
+            "category": {
+              "title": "Apple Home Icon",
+              "description": "Choose how this device appears in the Apple Home app. This changes the icon/category only; it does not change device functionality.",
+              "type": "string",
+              "default": "TELEVISION",
+              "oneOf": [
+                {
+                  "title": "Television",
+                  "enum": [
+                    "TELEVISION"
+                  ]
+                },
+                {
+                  "title": "Streaming Stick",
+                  "enum": [
+                    "TV_STREAMING_STICK"
+                  ]
+                },
+                {
+                  "title": "Set-Top Box",
+                  "enum": [
+                    "TV_SET_TOP_BOX"
+                  ]
+                },
+                {
+                  "title": "Apple TV",
+                  "enum": [
+                    "APPLE_TV"
+                  ]
+                }
+              ]
             }
           }
         }
