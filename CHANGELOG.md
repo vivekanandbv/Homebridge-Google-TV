@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.1-beta.4] - 2026-10-05
+## [1.2.1-beta.5] - 2026-10-05
 
 ### Fixed
 - **App Switching over Android TV Remote Protocol**: Added native `sendAppLink` support to launch streaming apps (YouTube, Netflix, Prime Video, Disney+, etc.) directly over the encrypted Remote Protocol v2 TLS connection without requiring ADB.
