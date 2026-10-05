@@ -175,4 +175,17 @@ export class AndroidTVClient extends EventEmitter {
       return false;
     }
   }
+
+  async sendAppLink(appLink: string): Promise<boolean> {
+    if (!this.isConnected) {
+      return false;
+    }
+    try {
+      this.remote.sendAppLink(appLink);
+      return true;
+    } catch (e: any) {
+      console.error('[AndroidTV] sendAppLink error:', e?.message || e);
+      return false;
+    }
+  }
 }

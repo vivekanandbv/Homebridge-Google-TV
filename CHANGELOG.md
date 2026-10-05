@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1-beta.4] - 2026-10-05
+
+### Fixed
+- **App Switching over Android TV Remote Protocol**: Added native `sendAppLink` support to launch streaming apps (YouTube, Netflix, Prime Video, Disney+, etc.) directly over the encrypted Remote Protocol v2 TLS connection without requiring ADB.
+- **Universal Input Target Resolution**: Added case-insensitive and whitespace-tolerant resolution for all HDMI and hardware inputs (`HDMI 1`, `HDMI1`, `HDMI-1`, `Composite`, `Component`, etc.) to prevent skipped input services.
+- **InputSource Characteristic Getters & Linking**: Bound explicit HAP getters (`ConfiguredName`, `Name`, `Identifier`, `IsConfigured`, `CurrentVisibilityState`, `TargetVisibilityState`) and dynamic identifier mapping for all configured inputs to ensure full Apple HomeKit compliance.
+
 ## [1.2.1-beta.3] - 2026-10-01
 
 ### Added

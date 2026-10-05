@@ -10,15 +10,24 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
-interface InputDefinition {
+export interface InputDefinition {
   package?: string;
+  uri?: string;
   type: number;
   key?: number;
 }
 
+export interface ConfiguredInputItem {
+  id: number;
+  name: string;
+  target: InputDefinition;
+  service: Service;
+}
+
 // Input and App catalog.
 // Hardware and HDMI input keycode mappings inspired by Tharun P Karun (homebridge-androidtv-ultimate).
-const appPackageMap: { [key: string]: InputDefinition } = {
+export const appPackageMap: { [key: string]: InputDefinition } = {
+  // Navigation & Hardware / Inputs
   'Home': { package: 'com.google.android.apps.tv.referencelauncher', type: 1, key: 3 },
   'HDMI 1': { type: 3, key: 243 }, // KEYCODE_TV_INPUT_HDMI_1
   'HDMI 2': { type: 3, key: 244 }, // KEYCODE_TV_INPUT_HDMI_2
@@ -30,16 +39,58 @@ const appPackageMap: { [key: string]: InputDefinition } = {
   'Component 2': { type: 6, key: 250 }, // KEYCODE_TV_INPUT_COMPONENT_2
   'Live TV': { type: 2, key: 170 }, // KEYCODE_TV
   'TV Input': { type: 0, key: 178 }, // KEYCODE_TV_INPUT
-  'YouTube': { package: 'com.google.android.youtube.tv', type: 10 },
-  'Netflix': { package: 'com.netflix.ninja', type: 10 },
-  'Prime Video': { package: 'com.amazon.amazonvideo.livingroom', type: 10 },
-  'Disney+': { package: 'com.disney.disneyplus', type: 10 },
-  'Apple TV': { package: 'com.apple.atve.android.appletv', type: 10 },
-  'Hulu': { package: 'com.hulu.livingroomplus', type: 10 },
-  'HBO Max': { package: 'com.hbo.hbonow', type: 10 },
-  'Spotify': { package: 'com.spotify.tv.android', type: 10 },
-  'Plex': { package: 'com.plexapp.android', type: 10 },
+
+  // Common Aliases (without spaces, lowercase, or hyphenated)
+  'HDMI1': { type: 3, key: 243 },
+  'HDMI2': { type: 3, key: 244 },
+  'HDMI3': { type: 3, key: 245 },
+  'HDMI4': { type: 3, key: 246 },
+  'HDMI-1': { type: 3, key: 243 },
+  'HDMI-2': { type: 3, key: 244 },
+  'HDMI-3': { type: 3, key: 245 },
+  'HDMI-4': { type: 3, key: 246 },
+  'Composite1': { type: 4, key: 247 },
+  'Composite2': { type: 4, key: 248 },
+  'Component1': { type: 6, key: 249 },
+  'Component2': { type: 6, key: 250 },
+  'LiveTV': { type: 2, key: 170 },
+  'TVInput': { type: 0, key: 178 },
+
+  // Streaming & Media Applications
+  'YouTube': { package: 'com.google.android.youtube.tv', uri: 'https://www.youtube.com', type: 10 },
+  'Netflix': { package: 'com.netflix.ninja', uri: 'https://www.netflix.com', type: 10 },
+  'Prime Video': { package: 'com.amazon.amazonvideo.livingroom', uri: 'https://app.primevideo.com', type: 10 },
+  'Disney+': { package: 'com.disney.disneyplus', uri: 'https://www.disneyplus.com', type: 10 },
+  'Apple TV': { package: 'com.apple.atve.android.appletv', uri: 'https://tv.apple.com', type: 10 },
+  'Hulu': { package: 'com.hulu.livingroomplus', uri: 'https://www.hulu.com', type: 10 },
+  'HBO Max': { package: 'com.hbo.hbonow', uri: 'https://play.max.com', type: 10 },
+  'Max': { package: 'com.wbd.stream', uri: 'https://play.max.com', type: 10 },
+  'Spotify': { package: 'com.spotify.tv.android', uri: 'https://open.spotify.com', type: 10 },
+  'Plex': { package: 'com.plexapp.android', uri: 'plex://', type: 10 },
+  'Kodi': { package: 'org.xbmc.kodi', type: 10 },
+  'VLC': { package: 'org.videolan.vlc', type: 10 },
 };
+
+export function resolveInputTarget(inputName: string, customApps: Array<{ name: string, package: string }>): InputDefinition | undefined {
+  const custom = customApps.find(a => a.name.toLowerCase() === inputName.toLowerCase());
+  if (custom) {
+    return { package: custom.package, type: 10 };
+  }
+
+  if (appPackageMap[inputName]) {
+    return appPackageMap[inputName];
+  }
+
+  const normalized = inputName.trim().toLowerCase().replace(/[-_ ]+/g, '');
+  for (const [key, def] of Object.entries(appPackageMap)) {
+    const keyNorm = key.trim().toLowerCase().replace(/[-_ ]+/g, '');
+    if (keyNorm === normalized || key.toLowerCase() === inputName.toLowerCase()) {
+      return def;
+    }
+  }
+
+  return undefined;
+}
 
 export class TelevisionAccessory {
   private tvService: Service;
@@ -53,7 +104,7 @@ export class TelevisionAccessory {
   private currentInputId = 1;
   private lastLoggedPlaybackState = '';
   private lastPlaybackLogTime = 0;
-  private inputServices: Service[] = [];
+  private configuredInputList: ConfiguredInputItem[] = [];
 
   constructor(
     private readonly platform: ADBCastPlatform,
@@ -318,78 +369,116 @@ export class TelevisionAccessory {
       this.tvAccessory.removeService(s);
     }
 
-    this.inputServices = [];
-
-    // Merge standard appPackageMap with configured customApps
-    const localAppMap: { [key: string]: InputDefinition } = { ...appPackageMap };
-    for (const app of customApps) {
-      localAppMap[app.name] = { package: app.package, type: 10 }; // APPLICATION = 10
-    }
+    this.configuredInputList = [];
 
     let id = 1;
     for (const inputName of enabledInputs) {
-      const target = localAppMap[inputName];
+      const target = resolveInputTarget(inputName, customApps);
       if (!target) {
+        this.platform.log.warn(`[TV Input] Unknown input source "${inputName}" in config. Skipping.`);
         continue;
       }
 
-      const inputService = this.tvAccessory.addService(this.platform.Service.InputSource, inputName.toLowerCase(), inputName);
-      
+      const displayName = inputName.trim();
+      const serviceSubtype = `input_${id}_${displayName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+
+      const inputService = this.tvAccessory.addService(
+        this.platform.Service.InputSource,
+        displayName,
+        serviceSubtype,
+      );
+
       inputService
         .setCharacteristic(this.platform.Characteristic.Identifier, id)
-        .setCharacteristic(this.platform.Characteristic.ConfiguredName, inputName)
+        .setCharacteristic(this.platform.Characteristic.ConfiguredName, displayName)
+        .setCharacteristic(this.platform.Characteristic.Name, displayName)
         .setCharacteristic(this.platform.Characteristic.IsConfigured, this.platform.Characteristic.IsConfigured.CONFIGURED)
         .setCharacteristic(this.platform.Characteristic.InputSourceType, target.type)
         .setCharacteristic(this.platform.Characteristic.CurrentVisibilityState, this.platform.Characteristic.CurrentVisibilityState.SHOWN)
         .setCharacteristic(this.platform.Characteristic.TargetVisibilityState, this.platform.Characteristic.TargetVisibilityState.SHOWN);
 
+      inputService.getCharacteristic(this.platform.Characteristic.ConfiguredName).onGet(() => displayName);
+      inputService.getCharacteristic(this.platform.Characteristic.Identifier).onGet(() => id);
+      inputService.getCharacteristic(this.platform.Characteristic.IsConfigured)
+        .onGet(() => this.platform.Characteristic.IsConfigured.CONFIGURED);
+      inputService.getCharacteristic(this.platform.Characteristic.CurrentVisibilityState)
+        .onGet(() => this.platform.Characteristic.CurrentVisibilityState.SHOWN);
+      inputService.getCharacteristic(this.platform.Characteristic.TargetVisibilityState)
+        .onGet(() => this.platform.Characteristic.TargetVisibilityState.SHOWN);
+
       this.tvService.addLinkedService(inputService);
-      this.inputServices.push(inputService);
+      this.configuredInputList.push({
+        id,
+        name: displayName,
+        target,
+        service: inputService,
+      });
+
+      this.platform.log.info(`[TV Input] Registered Input [${id}] "${displayName}" (Type: ${target.type})`);
       id++;
     }
   }
 
   private async launchInputApp(id: number) {
-    const devices = this.platform.config.devices || [];
-    const deviceConfig = devices.find((d: any) => d.ip === this.tvAccessory.context.device.ip) || {};
-    const enabledInputs = deviceConfig.inputs || ['Home', 'YouTube', 'Netflix', 'Prime Video'];
-    const customApps = deviceConfig.customApps || [];
-    
-    const inputName = enabledInputs[id - 1];
-    if (!inputName) {
+    const inputItem = this.configuredInputList.find(item => item.id === id);
+    if (!inputItem) {
+      this.platform.log.warn(`[TV Input] No configured input found for Identifier ${id}`);
       return;
     }
 
-    // Merge standard appPackageMap with configured customApps
-    const localAppMap = { ...appPackageMap };
-    for (const app of customApps) {
-      localAppMap[app.name] = { package: app.package, type: 10 };
-    }
-
-    const target = localAppMap[inputName];
-    if (!target) {
-      return;
-    }
+    const { name: inputName, target } = inputItem;
+    this.platform.log.info(`[TV Input] Executing switch to "${inputName}" (ID: ${id})`);
 
     try {
+      // 1. Hardware keycode inputs (e.g. Home = 3, HDMI 1 = 243, HDMI 2 = 244, etc.)
       if (target.key !== undefined) {
         this.platform.log.info(`[TV Input] Switching input to ${inputName} (Keycode: ${target.key})`);
-        await this.sendKey(target.key);
+        const sent = await this.sendKey(target.key);
+        if (!sent) {
+          this.platform.log.warn(`[TV Input] Failed to send keycode ${target.key} for ${inputName}`);
+        }
         return;
       }
-      
-      if (target.package) {
-        if (this.adbClient && this.adbClient.isConnected && this.adbClient.targetIdentifier) {
-          this.platform.log.info(`[TV Input] Launching app ${inputName} (${target.package}) over ADB`);
-          const monkeyCmd = `"${adbPath}" -s ${this.adbClient.targetIdentifier} ` +
-            `shell monkey -p ${target.package} -c android.intent.category.LEANBACK_LAUNCHER 1`;
-          await execAsync(monkeyCmd, { timeout: 5000 });
-        } else {
-          this.platform.log.warn(`[TV Input] ADB not connected, cannot launch ${inputName}`);
+
+      // 2. Application inputs (e.g. YouTube, Netflix, Disney+, Prime Video, etc.)
+      let launched = false;
+
+      // 2A. Remote Protocol v2 instant TLS launch
+      if (this.androidTVClient.isRemoteConnected) {
+        if (target.uri) {
+          this.platform.log.info(`[TV Input] Launching app ${inputName} via Remote URI (${target.uri})`);
+          launched = await this.androidTVClient.sendAppLink(target.uri);
+        }
+        if (!launched && target.package) {
+          this.platform.log.info(`[TV Input] Launching app ${inputName} via Remote AppLink (${target.package})`);
+          launched = await this.androidTVClient.sendAppLink(target.package);
         }
       }
+
+      // 2B. ADB fallback
+      if (!launched && target.package && this.adbClient && this.adbClient.isConnected && this.adbClient.targetIdentifier) {
+        this.platform.log.info(`[TV Input] Launching app ${inputName} (${target.package}) over ADB`);
+        try {
+          const monkeyCmd = `"${adbPath}" -s ${this.adbClient.targetIdentifier} ` +
+            `shell monkey -p ${target.package} 1`;
+          await execAsync(monkeyCmd, { timeout: 5000 });
+          launched = true;
+        } catch (adbErr: any) {
+          this.platform.log.debug(`[TV Input] ADB monkey failed (${adbErr?.message || adbErr}), trying am start...`);
+          try {
+            const amCmd = `"${adbPath}" -s ${this.adbClient.targetIdentifier} ` +
+              `shell am start -a android.intent.action.VIEW -d "android-app://${target.package}"`;
+            await execAsync(amCmd, { timeout: 5000 });
+            launched = true;
+          } catch { /* ignore */ }
+        }
+      }
+
+      if (!launched && !this.androidTVClient.isRemoteConnected && (!this.adbClient || !this.adbClient.isConnected)) {
+        this.platform.log.warn(`[TV Input] Cannot launch ${inputName}: Neither Android TV Remote nor ADB is connected.`);
+      }
     } catch (e: any) {
-      this.platform.log.error(`[TV Input] Failed to launch ${inputName}: ${e.message}`);
+      this.platform.log.error(`[TV Input] Failed to switch/launch ${inputName}: ${e?.message || e}`);
     }
   }
 
