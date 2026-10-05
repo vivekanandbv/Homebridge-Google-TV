@@ -2,7 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.1-beta.6] - 2026-10-05
+## [1.2.1-beta.7] - 2026-10-05
+
+### Fixed
+- **InputSource Identifier Closure Bug**: Fixed a closure variable capture issue in `setupInputSources` where all inputs returned the final loop ID (causing Apple Home to collapse all configured inputs into the last input e.g. HDMI 4). Each input source now permanently retains its unique identifier, configured name, and visibility states.
 
 ### Fixed
 - **App Switching over Android TV Remote Protocol**: Added native `sendAppLink` support to launch streaming apps (YouTube, Netflix, Prime Video, Disney+, etc.) directly over the encrypted Remote Protocol v2 TLS connection without requiring ADB.

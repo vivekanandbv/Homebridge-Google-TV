@@ -373,6 +373,7 @@ export class TelevisionAccessory {
 
     let id = 1;
     for (const inputName of enabledInputs) {
+      const currentId = id;
       const target = resolveInputTarget(inputName, customApps);
       if (!target) {
         this.platform.log.warn(`[TV Input] Unknown input source "${inputName}" in config. Skipping.`);
@@ -380,7 +381,7 @@ export class TelevisionAccessory {
       }
 
       const displayName = inputName.trim();
-      const serviceSubtype = `input_${id}_${displayName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      const serviceSubtype = `input_${currentId}_${displayName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
 
       const inputService = this.tvAccessory.addService(
         this.platform.Service.InputSource,
@@ -389,7 +390,7 @@ export class TelevisionAccessory {
       );
 
       inputService
-        .setCharacteristic(this.platform.Characteristic.Identifier, id)
+        .setCharacteristic(this.platform.Characteristic.Identifier, currentId)
         .setCharacteristic(this.platform.Characteristic.ConfiguredName, displayName)
         .setCharacteristic(this.platform.Characteristic.Name, displayName)
         .setCharacteristic(this.platform.Characteristic.IsConfigured, this.platform.Characteristic.IsConfigured.CONFIGURED)
@@ -397,24 +398,36 @@ export class TelevisionAccessory {
         .setCharacteristic(this.platform.Characteristic.CurrentVisibilityState, this.platform.Characteristic.CurrentVisibilityState.SHOWN)
         .setCharacteristic(this.platform.Characteristic.TargetVisibilityState, this.platform.Characteristic.TargetVisibilityState.SHOWN);
 
-      inputService.getCharacteristic(this.platform.Characteristic.ConfiguredName).onGet(() => displayName);
-      inputService.getCharacteristic(this.platform.Characteristic.Identifier).onGet(() => id);
+      inputService.getCharacteristic(this.platform.Characteristic.ConfiguredName)
+        .onGet(() => displayName)
+        .onSet((value) => {
+          this.platform.log.info(`[TV Input] Renamed input ${currentId} to "${value}" in Apple Home`);
+        });
+
+      inputService.getCharacteristic(this.platform.Characteristic.Identifier)
+        .onGet(() => currentId);
+
       inputService.getCharacteristic(this.platform.Characteristic.IsConfigured)
         .onGet(() => this.platform.Characteristic.IsConfigured.CONFIGURED);
+
       inputService.getCharacteristic(this.platform.Characteristic.CurrentVisibilityState)
         .onGet(() => this.platform.Characteristic.CurrentVisibilityState.SHOWN);
+
       inputService.getCharacteristic(this.platform.Characteristic.TargetVisibilityState)
-        .onGet(() => this.platform.Characteristic.TargetVisibilityState.SHOWN);
+        .onGet(() => this.platform.Characteristic.TargetVisibilityState.SHOWN)
+        .onSet((value) => {
+          inputService.updateCharacteristic(this.platform.Characteristic.CurrentVisibilityState, value);
+        });
 
       this.tvService.addLinkedService(inputService);
       this.configuredInputList.push({
-        id,
+        id: currentId,
         name: displayName,
         target,
         service: inputService,
       });
 
-      this.platform.log.info(`[TV Input] Registered Input [${id}] "${displayName}" (Type: ${target.type})`);
+      this.platform.log.info(`[TV Input] Registered Input [${currentId}] "${displayName}" (Type: ${target.type})`);
       id++;
     }
   }
