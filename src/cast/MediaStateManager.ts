@@ -37,15 +37,14 @@ export class MediaStateManager extends EventEmitter {
       // Start polling immediately if ADB is configured
       this.adb.startPolling(3000);
 
+      this.adb.on('connected', () => {
+        this.adb?.startPolling(3000);
+      });
+
       this.remote.on('powered', (powered: boolean) => {
-        if (this.adb) {
-          if (powered) {
-            this.adb.startPolling(3000);
-          } else {
-            this.adb.stopPolling();
-            this.adbState = { playbackState: 'UNKNOWN' };
-            this.emit('state_changed');
-          }
+        if (!powered && this.adb) {
+          this.adbState = { playbackState: 'UNKNOWN' };
+          this.emit('state_changed');
         }
       });
 
@@ -100,6 +99,16 @@ export class MediaStateManager extends EventEmitter {
       } else {
         await this.remote.sendKey(127); // KEYCODE_MEDIA_PAUSE
       }
+
+      // Query state shortly after to confirm from device
+      setTimeout(async () => {
+        if (this.adb) {
+          try {
+            const state = await this.adb.getMediaState();
+            this.adb.emit('media_state', state);
+          } catch { /* ignore */ }
+        }
+      }, 1000);
     }
   }
 }

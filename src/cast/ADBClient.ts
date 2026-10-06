@@ -341,7 +341,6 @@ The plugin will continue without ADB until it becomes available.`,
       );
 
       const lines = stdout.split('\n');
-
       const sessions: Array<{
         pkg?: string;
         active: boolean;
@@ -354,25 +353,31 @@ The plugin will continue without ADB until it becomes available.`,
         state: string;
       } | null = null;
 
+      const pushCurrent = () => {
+        if (currentSession && (currentSession.pkg || currentSession.state !== 'UNKNOWN')) {
+          sessions.push(currentSession);
+        }
+        currentSession = {
+          active: false,
+          state: 'UNKNOWN',
+        };
+      };
+
       for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed) {
           continue;
         }
 
+        // Delimiters for session boundaries across all Android TV versions
         if (
+          trimmed.startsWith('ownerPid=') ||
+          /\(userId=\d+\)/.test(trimmed) ||
           trimmed.startsWith('Record ') ||
           /^\d+:\s*Record/.test(trimmed) ||
-          trimmed.startsWith('Sessions Stack') ||
-          (trimmed.startsWith('tag=') && currentSession && (currentSession.pkg || currentSession.state !== 'UNKNOWN'))
+          trimmed.startsWith('tag=')
         ) {
-          if (currentSession && (currentSession.pkg || currentSession.state !== 'UNKNOWN')) {
-            sessions.push(currentSession);
-          }
-          currentSession = {
-            active: false,
-            state: 'UNKNOWN',
-          };
+          pushCurrent();
         }
 
         if (!currentSession) {
@@ -383,6 +388,9 @@ The plugin will continue without ADB until it becomes available.`,
         }
 
         if (trimmed.startsWith('package=') || trimmed.startsWith('ownerPackageName=')) {
+          if (currentSession.pkg) {
+            pushCurrent();
+          }
           const parts = trimmed.split('=');
           if (parts.length > 1) {
             currentSession.pkg = parts[1].trim().split(' ')[0];
@@ -398,13 +406,10 @@ The plugin will continue without ADB until it becomes available.`,
           currentSession.state = trimmed;
         }
       }
-
-      if (currentSession && (currentSession.pkg || currentSession.state !== 'UNKNOWN')) {
-        sessions.push(currentSession);
-      }
+      pushCurrent();
 
       const parseState = (stateStr: string): 'PLAYING' | 'PAUSED' | 'BUFFERING' | 'ERROR' | 'UNKNOWN' => {
-        if (!stateStr || stateStr === 'UNKNOWN') {
+        if (!stateStr || stateStr === 'UNKNOWN' || stateStr === 'state=null') {
           return 'UNKNOWN';
         }
         if (
@@ -437,6 +442,7 @@ The plugin will continue without ADB until it becomes available.`,
         return 'UNKNOWN';
       };
 
+      // 1. Prioritize any session actively PLAYING
       for (const s of sessions) {
         const parsed = parseState(s.state);
         if (parsed === 'PLAYING') {
@@ -447,6 +453,7 @@ The plugin will continue without ADB until it becomes available.`,
         }
       }
 
+      // 2. Active buffering sessions
       for (const s of sessions) {
         if (s.active) {
           const parsed = parseState(s.state);
@@ -459,6 +466,7 @@ The plugin will continue without ADB until it becomes available.`,
         }
       }
 
+      // 3. Active paused sessions
       for (const s of sessions) {
         if (s.active) {
           const parsed = parseState(s.state);
@@ -471,6 +479,7 @@ The plugin will continue without ADB until it becomes available.`,
         }
       }
 
+      // 4. Any parsed non-UNKNOWN session
       for (const s of sessions) {
         const parsed = parseState(s.state);
         if (parsed !== 'UNKNOWN') {
