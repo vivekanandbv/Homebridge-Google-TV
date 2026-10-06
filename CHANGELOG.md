@@ -2,7 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.1-beta.11] - 2026-10-06
+## [1.2.1-beta.12] - 2026-10-06
+
+### Fixed
+- **Settings UI Initialization**: Restored `showStep` and UI step navigation functions in `index.html` to fix modal launch and error handling.
 
 ### Added
 - **Streamlined Single-PIN ADB Pairing**:

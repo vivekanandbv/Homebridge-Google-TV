@@ -581,56 +581,169 @@
       }
   }
 
+  function showStep(id) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.add('active');
+    }
+  }
+
   function showDashboard() {
-      renderDashboard();
-      showStep('step-dashboard');
+    renderDashboard();
+    showStep('step-dashboard');
   }
 
   function toggleAdvancedAdbPorts() {
-      const el = document.getElementById('advanced-adb-ports');
-      if (el) {
-          el.style.display = el.style.display === 'none' ? 'block' : 'none';
-      }
+    const el = document.getElementById('advanced-adb-ports');
+    if (el) {
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
   }
 
   function triggerAdbSetup(ip) {
-      currentDevice = { ip: ip, name: 'TV' };
-      
-      // Clear inputs
-      if (document.getElementById('adb-connect-port')) document.getElementById('adb-connect-port').value = '';
-      if (document.getElementById('adb-port')) document.getElementById('adb-port').value = '';
-      if (document.getElementById('adb-pin')) document.getElementById('adb-pin').value = '';
-      if (document.getElementById('advanced-adb-ports')) document.getElementById('advanced-adb-ports').style.display = 'none';
-      
-      // Go directly to the ADB step without loading screen
-      showStep('step-adb');
-      
-      // Focus on the PIN input
-      setTimeout(() => {
-          const pinInput = document.getElementById('adb-pin');
-          if (pinInput) pinInput.focus();
-      }, 100);
-      
-      // Perform background discovery to pre-fill both ports automatically
-      homebridge.request('/discover').then(devices => {
-          const found = devices.find(x => x.ip === ip);
-          if (found) {
-              if (found.adbConnectEndpoint) {
-                  currentDevice.adbConnectEndpoint = found.adbConnectEndpoint;
-                  const cPort = found.adbConnectEndpoint.match(/:(\d+)$/);
-                  if (cPort && document.getElementById('adb-connect-port')) {
-                      document.getElementById('adb-connect-port').value = cPort[1];
-                  }
-              }
-              if (found.adbPairingEndpoint) {
-                  currentDevice.adbPairingEndpoint = found.adbPairingEndpoint;
-                  const pPort = found.adbPairingEndpoint.match(/:(\d+)$/);
-                  if (pPort && document.getElementById('adb-port')) {
-                      document.getElementById('adb-port').value = pPort[1];
-                  }
-              }
+    currentDevice = { ip: ip, name: 'TV' };
+    
+    // Clear inputs
+    if (document.getElementById('adb-connect-port')) document.getElementById('adb-connect-port').value = '';
+    if (document.getElementById('adb-port')) document.getElementById('adb-port').value = '';
+    if (document.getElementById('adb-pin')) document.getElementById('adb-pin').value = '';
+    if (document.getElementById('advanced-adb-ports')) document.getElementById('advanced-adb-ports').style.display = 'none';
+    
+    // Go directly to the ADB step without loading screen
+    showStep('step-adb');
+    
+    // Focus on the PIN input
+    setTimeout(() => {
+      const pinInput = document.getElementById('adb-pin');
+      if (pinInput) pinInput.focus();
+    }, 100);
+    
+    // Perform background discovery to pre-fill both ports automatically
+    homebridge.request('/discover').then(devices => {
+      const found = devices.find(x => x.ip === ip);
+      if (found) {
+        if (found.adbConnectEndpoint) {
+          currentDevice.adbConnectEndpoint = found.adbConnectEndpoint;
+          const cPort = found.adbConnectEndpoint.match(/:(\d+)$/);
+          if (cPort && document.getElementById('adb-connect-port')) {
+            document.getElementById('adb-connect-port').value = cPort[1];
           }
-      }).catch(() => { /* ignore */ });
+        }
+        if (found.adbPairingEndpoint) {
+          currentDevice.adbPairingEndpoint = found.adbPairingEndpoint;
+          const pPort = found.adbPairingEndpoint.match(/:(\d+)$/);
+          if (pPort && document.getElementById('adb-port')) {
+            document.getElementById('adb-port').value = pPort[1];
+          }
+        }
+      }
+    }).catch(() => { /* ignore */ });
+  }
+
+  async function triggerRemoteSetup(ip) {
+    currentDevice = { ip: ip, name: 'TV' };
+    showStep('step-loading');
+    const loadingText = document.querySelector('#step-loading div.mt-3') || document.querySelector('#step-loading p');
+    if (loadingText) loadingText.innerText = 'Requesting PIN from TV...';
+    
+    try {
+      const res = await homebridge.request('/start-remote-pairing', { ip: ip });
+      if (res && res.success) {
+        showStep('step-remote');
+      } else {
+        homebridge.toast.error((res && res.message) || 'Failed to request PIN from TV', 'Remote Pairing');
+        showDashboard();
+      }
+    } catch (e) {
+      homebridge.toast.error(e.message, 'Error');
+      showDashboard();
+    }
+  }
+
+  async function pairRemote() {
+    const pin = document.getElementById('remote-pin').value;
+    if (!pin) return;
+    const btn = document.getElementById('btn-pair-remote');
+    if (btn) {
+      btn.innerText = 'Pairing...';
+      btn.disabled = true;
+    }
+    try {
+      const res = await homebridge.request('/submit-remote-pin', { code: pin });
+      if (res && res.success) {
+        homebridge.toast.success('Remote Paired!');
+        let devConf = allDevices.find(d => d.ip === currentDevice.ip);
+        if (devConf) {
+          devConf.cert = res.cert;
+        }
+        await homebridge.updatePluginConfig(pluginConfig);
+        showStep('step-remote-success');
+      } else {
+        homebridge.toast.error((res && res.message) || 'Incorrect PIN. Requesting new PIN...', 'Pairing Failed');
+        document.getElementById('remote-pin').value = '';
+        triggerRemoteSetup(currentDevice.ip);
+      }
+    } catch (e) {
+      homebridge.toast.error(e.message, 'Error');
+      triggerRemoteSetup(currentDevice.ip);
+    }
+    if (btn) {
+      btn.innerText = 'Pair Remote';
+      btn.disabled = false;
+    }
+  }
+
+  function skipToAdb() {
+    showStep('step-adb');
+  }
+
+  async function discover() {
+    showStep('step-loading');
+    const loadingText = document.querySelector('#step-loading div.mt-3') || document.querySelector('#step-loading p');
+    if (loadingText) loadingText.innerText = 'Scanning network for TVs...';
+    try {
+      const devices = await homebridge.request('/discover');
+      const list = document.getElementById('device-list');
+      list.innerHTML = '';
+
+      if (!devices || devices.length === 0) {
+        list.innerHTML = '<div class="alert alert-warning">No devices found. Ensure your TV is on and connected to the same Wi-Fi.</div>';
+      } else {
+        devices.forEach(d => {
+          const card = document.createElement('div');
+          card.className = 'tv-card discovery-card';
+          card.innerHTML = `
+            <h4>${d.name || d.ip}</h4>
+            <div class="tv-badges">
+              <span class="tv-badge ${d.cast ? 'ok' : ''}">Cast ${d.cast ? '✓' : ''}</span>
+              <span class="tv-badge ${d.remote ? 'ok' : ''}">Remote ${d.remote ? '✓' : ''}</span>
+              <span class="tv-badge ${d.adbConnect ? 'ok' : ''}">ADB ${d.adbConnect ? '✓' : ''}</span>
+            </div>
+          `;
+          card.onclick = () => selectDevice(d);
+          list.appendChild(card);
+        });
+      }
+      showStep('step-devices');
+    } catch (e) {
+      homebridge.toast.error(e.message, 'Discovery Failed');
+      showStep('step-devices');
+    }
+  }
+
+  async function selectDevice(device) {
+    currentDevice = device;
+    let devConf = allDevices.find(d => d.ip === device.ip);
+    if (!devConf) {
+      devConf = { name: device.name || 'Android TV', ip: device.ip };
+      allDevices.push(devConf);
+    }
+    if (devConf.cert) {
+      skipToAdb();
+    } else {
+      triggerRemoteSetup(device.ip);
+    }
   }
 
   async function pairAdb() {
