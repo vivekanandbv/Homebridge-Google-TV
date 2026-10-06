@@ -2,66 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.1-beta.13] - 2026-10-06
+## [1.2.1-beta.14] - 2026-10-06
 
 ### Added
-- **Server-Side CLI mDNS Port Resolution**: Enhanced the ADB pairing backend with `adb mdns services` scanning to automatically extract pairing & connect ports from TV broadcast without requiring manual user input.
+- **Apple Home Icon / Category Selection**:
+  - Added configuration option allowing users to choose how the accessory is categorized and displayed in the Apple Home app:
+    - **Television** (`TELEVISION`) — Default
+    - **Streaming Stick** (`TV_STREAMING_STICK`)
+    - **Set-Top Box** (`TV_SET_TOP_BOX`)
+    - **Apple TV** (`APPLE_TV`)
+  - Integrated visual "Apple Home Icon" selector directly inside each TV card in the Homebridge Settings dashboard and configuration schema.
+  - *Credit and thanks to **rubenRP** ([homebridge-chromecast-google-tv](https://github.com/rubenRP/homebridge-chromecast-google-tv)) for the HomeKit accessory category selection architecture.*
+- **HDMI & Hardware Source Switching**:
+  - Added native Apple Home input switching support for HDMI 1, HDMI 2, HDMI 3, HDMI 4, Composite 1/2, Component 1/2, Live TV, and TV Input Selector.
+  - Dispatches standard Android hardware keycodes (`KEYCODE_TV_INPUT_HDMI_1..4`, `KEYCODE_TV`, `KEYCODE_TV_INPUT`) seamlessly via Android TV Remote Protocol v2 or ADB keyevent fallback.
+  - Extended visual Settings UI to easily add, check/uncheck, or customize any HDMI and hardware inputs.
+  - *Credit and thanks to **Tharun P Karun** ([homebridge-androidtv-ultimate](https://github.com/tharunpkarun/homebridge-androidtv-ultimate)) for the Android TV hardware input keycode mapping architecture.*
+- **Streamlined Single-PIN ADB Pairing with Auto-Detection of Ports**:
+  - Implemented automatic server-side mDNS discovery (`adb mdns services`) to automatically detect pairing and connect ports over the local network without requiring manual user input.
+  - Simplified the Settings UI pairing wizard to a single 6-digit PIN input with auto-focus (tucking manual ports into an optional advanced dropdown for restricted network topologies).
+  - Automated permanent port `5555` activation (`adb tcpip 5555`) upon pairing so the TV stays permanently connected across reboots without requiring re-pairing.
+  - Added an interactive `✓ ADB Connected (Re-pair)` badge in the Settings UI for 1-click re-pairing if TV network settings change.
 
 ### Fixed
-- **Settings UI Initialization**: Restored `showStep` and UI step navigation functions in `index.html` to fix modal launch and error handling.
-
-### Added
-- **Streamlined Single-PIN ADB Pairing**:
-  - Implemented automatic background mDNS discovery of Wireless Debugging pairing & connect ports.
-  - Simplified the Settings UI to a single 6-digit PIN input with auto-focus (tucking manual ports into an optional advanced dropdown).
-  - Automated permanent port `5555` activation upon pairing so the TV stays connected across reboots without re-pairing.
-
-## [1.2.1-beta.10] - 2026-10-06
-
-### Fixed
-- **Wireless Debugging Dual-Port Handshake & Automatic Port 5555 Activation**:
-  - Updated the Settings UI pairing wizard to accept both the Main Connect Port (from the main Wireless Debugging screen) and the Pairing Port & PIN (from the pairing modal).
-  - Implemented automatic `adb tcpip 5555` activation during pairing to unlock the standard permanent ADB port across reboots.
-  - Enhanced `ADBClient` connection logic with smart fallback and active target resolution.
-
-### Added
-- **Interactive ADB Re-pairing**: Made the `✓ ADB Connected` badge in the Settings UI clickable with an explicit `(Re-pair)` button, allowing users to re-run the ADB pairing wizard whenever TV IP or Wireless Debugging ports reset.
-- **Documentation**: Added comprehensive Developer Options and USB/Wireless Debugging setup instructions to `README.md`.
-
-## [1.2.1-beta.8] - 2026-10-06
-
-### Fixed
-- **Media Playback State & Volume Bulb Sync**:
-  - Rewrote ADB `dumpsys media_session` parser to be indentation-agnostic across Android 10/11/12/13/14 session stack formats.
-  - Implemented priority scanning across all media sessions to ensure active `PLAYING` (state 3) sessions are detected even when background assistant or system sessions are present.
-  - Fixed media polling lifecycle in `MediaStateManager` to start immediately upon connection and reliably synchronize playback state with the Volume Bulb accessory in Apple Home.
-
-### Fixed
-- **InputSource Identifier Closure Bug**: Fixed a closure variable capture issue in `setupInputSources` where all inputs returned the final loop ID (causing Apple Home to collapse all configured inputs into the last input e.g. HDMI 4). Each input source now permanently retains its unique identifier, configured name, and visibility states.
-
-### Fixed
-- **App Switching over Android TV Remote Protocol**: Added native `sendAppLink` support to launch streaming apps (YouTube, Netflix, Prime Video, Disney+, etc.) directly over the encrypted Remote Protocol v2 TLS connection without requiring ADB.
-- **Universal Input Target Resolution**: Added case-insensitive and whitespace-tolerant resolution for all HDMI and hardware inputs (`HDMI 1`, `HDMI1`, `HDMI-1`, `Composite`, `Component`, etc.) to prevent skipped input services.
-- **InputSource Characteristic Getters & Linking**: Bound explicit HAP getters (`ConfiguredName`, `Name`, `Identifier`, `IsConfigured`, `CurrentVisibilityState`, `TargetVisibilityState`) and dynamic identifier mapping for all configured inputs to ensure full Apple HomeKit compliance.
-
-## [1.2.1-beta.3] - 2026-10-01
-
-### Added
-- **Apple Home Icon / Category Selection**: Added configuration option allowing users to choose how the accessory is categorized and displayed in the Apple Home app:
-  - **Television** (`TELEVISION`) — Default
-  - **Streaming Stick** (`TV_STREAMING_STICK`)
-  - **Set-Top Box** (`TV_SET_TOP_BOX`)
-  - **Apple TV** (`APPLE_TV`)
-- **Settings UI & Schema Integration**: Added an "Apple Home Icon" selector dropdown directly inside each TV card in the Homebridge Settings dashboard and configuration schema.
-- **Credits & Attribution**: Credit and thanks to **rubenRP** ([homebridge-chromecast-google-tv](https://github.com/rubenRP/homebridge-chromecast-google-tv)) for the HomeKit accessory category selection architecture.
-
-## [1.2.1-beta.2] - 2026-09-24
-
-### Added
-- **HDMI & Hardware Source Switching**: Added native Apple Home input switching support for HDMI 1, HDMI 2, HDMI 3, HDMI 4, Composite 1/2, Component 1/2, Live TV, and TV Input Selector.
-- **Direct Remote & ADB Keycode Dispatch**: Dispatches standard Android hardware keycodes (`KEYCODE_TV_INPUT_HDMI_1..4`, `KEYCODE_TV`, `KEYCODE_TV_INPUT`) seamlessly via Android TV Remote Protocol v2 or ADB keyevent fallback.
-- **Custom Settings UI Input Selector**: Extended the visual TV configuration dashboard to include all HDMI and hardware inputs in the standard input selector dropdown for easy 1-click addition/removal.
-- **Credits & Attribution**: Due credit and thanks to **Tharun P Karun** ([homebridge-androidtv-ultimate](https://github.com/tharunpkarun/homebridge-androidtv-ultimate)) for the Android TV hardware input keycode mapping architecture.
+- **Universal Media Playback Parsing & Volume Bulb Sync**:
+  - Rewrote the ADB `dumpsys media_session` parser to be indentation-agnostic across Android 10, 11, 12, 13, and 14 session stack formats.
+  - Implemented session boundary detection (`ownerPid=`, `userId`, `package=`) to prevent inactive background entries (Apple TV, Bluetooth, Netflix) from overwriting earlier active playing sessions (e.g., Prime Video, YouTube).
+  - Prioritized active `PLAYING` (state 3) sessions across all media session stacks.
+  - Removed unintentional polling pauses in `MediaStateManager`, keeping ADB polling active so the Volume / Playback Dimmer Lightbulb in Apple Home accurately and immediately synchronizes when playing or pausing via the physical TV remote.
+- **InputSource Identifier Closure Bug**:
+  - Fixed a closure variable capture issue in `setupInputSources` where all inputs returned the final loop ID (causing Apple Home to collapse all configured inputs into the last input e.g. HDMI 4). Each input source now permanently retains its unique identifier, configured name, and visibility states.
+- **App Switching over Android TV Remote Protocol**:
+  - Added native `sendAppLink` support to launch streaming apps (YouTube, Netflix, Prime Video, Disney+, etc.) directly over the encrypted Remote Protocol v2 TLS connection without requiring ADB.
+  - Added case-insensitive and whitespace-tolerant resolution for all HDMI and hardware inputs (`HDMI 1`, `HDMI1`, `HDMI-1`, `Composite`, `Component`, etc.).
+  - Bound explicit HAP getters (`ConfiguredName`, `Name`, `Identifier`, `IsConfigured`, `CurrentVisibilityState`, `TargetVisibilityState`) and dynamic identifier mapping for all configured inputs to ensure full Apple HomeKit compliance.
 
 ## [1.1.4] - 2026-09-22
 
