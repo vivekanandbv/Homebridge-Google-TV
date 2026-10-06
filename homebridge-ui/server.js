@@ -11,6 +11,31 @@ import { fileURLToPath } from 'url';
 const execAsync = promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+async function findAdbEndpointsViaCli(adb, targetIp) {
+  const result = { pairingEndpoint: null, connectEndpoint: null };
+  if (!adb || !targetIp) {
+    return result;
+  }
+  try {
+    const { stdout } = await execAsync(`"${adb}" mdns services`, { timeout: 4000 });
+    const lines = stdout.split('\n');
+    for (const line of lines) {
+      if (line.includes(targetIp)) {
+        const parts = line.trim().split(/\s+/);
+        const ep = parts.find((p) => p.startsWith(targetIp + ':'));
+        if (ep) {
+          if (line.includes('pairing') || line.includes('_adb-tls-pairing')) {
+            result.pairingEndpoint = ep;
+          } else if (line.includes('connect') || line.includes('_adb-tls-connect')) {
+            result.connectEndpoint = ep;
+          }
+        }
+      }
+    }
+  } catch { /* ignore */ }
+  return result;
+}
+
 async function isAdbWorking(cmd) {
   try {
     await execAsync(`"${cmd}" --version`, { timeout: 2000 });
@@ -253,8 +278,8 @@ class PluginUiServer extends HomebridgePluginUiServer {
   
   async pairAdb(payload) {
     const { ip, endpoint, pairingEndpoint, connectEndpoint, code } = payload;
-    const pairTarget = pairingEndpoint || endpoint;
-    const connectTarget = connectEndpoint || pairingEndpoint || endpoint;
+    let pairTarget = pairingEndpoint || endpoint;
+    let connectTarget = connectEndpoint || pairingEndpoint || endpoint;
 
     try {
       const adb = await getAdbPath();
@@ -265,6 +290,25 @@ class PluginUiServer extends HomebridgePluginUiServer {
         };
       }
 
+      // If pairing target is not provided, perform instant CLI mDNS discovery
+      if (!pairTarget && ip) {
+        const cliEndpoints = await findAdbEndpointsViaCli(adb, ip);
+        if (cliEndpoints.pairingEndpoint) {
+          pairTarget = cliEndpoints.pairingEndpoint;
+        }
+        if (cliEndpoints.connectEndpoint) {
+          connectTarget = cliEndpoints.connectEndpoint;
+        }
+      }
+
+      if (!pairTarget) {
+        return {
+          success: false,
+          requireManualPort: true,
+          message: 'Could not auto-detect pairing port over Wi-Fi. Please enter the Pairing Port shown in the TV popup.',
+        };
+      }
+
       // 1. Perform TLS PIN Pairing
       const { stdout: pairOut, stderr: pairErr } = await execAsync(`"${adb}" pair ${pairTarget} ${code}`, { timeout: 12000 });
       if (!pairOut.includes('Successfully paired')) {
@@ -272,7 +316,7 @@ class PluginUiServer extends HomebridgePluginUiServer {
       }
 
       // 2. Connect to the TV's wireless connect port
-      let activeEndpoint = connectTarget;
+      let activeEndpoint = connectTarget || pairTarget;
       if (connectTarget) {
         try {
           await execAsync(`"${adb}" connect ${connectTarget}`, { timeout: 8000 });
@@ -452,3 +496,6 @@ class PluginUiServer extends HomebridgePluginUiServer {
 (() => {
   return new PluginUiServer();
 })();
+
+
+

@@ -756,33 +756,12 @@
     let pairingPort = document.getElementById('adb-port').value ? document.getElementById('adb-port').value.trim() : '';
     let connectPort = document.getElementById('adb-connect-port').value ? document.getElementById('adb-connect-port').value.trim() : '';
     
-    // If not manually entered, check currentDevice discovered endpoints
     let pairingEndpoint = pairingPort ? `${currentDevice.ip}:${pairingPort}` : currentDevice.adbPairingEndpoint;
     let connectEndpoint = connectPort ? `${currentDevice.ip}:${connectPort}` : (currentDevice.adbConnectEndpoint || pairingEndpoint);
     
     const btn = document.getElementById('btn-pair-adb');
     btn.innerText = 'Pairing & Connecting...';
     btn.disabled = true;
-    
-    // If pairingEndpoint is missing, run a fast mDNS scan first
-    if (!pairingEndpoint) {
-      try {
-        const devs = await homebridge.request('/discover');
-        const found = devs.find(x => x.ip === currentDevice.ip);
-        if (found) {
-          if (found.adbPairingEndpoint) pairingEndpoint = found.adbPairingEndpoint;
-          if (found.adbConnectEndpoint) connectEndpoint = found.adbConnectEndpoint;
-        }
-      } catch { /* ignore */ }
-    }
-    
-    if (!pairingEndpoint) {
-      document.getElementById('advanced-adb-ports').style.display = 'block';
-      homebridge.toast.error('Could not auto-detect pairing port. Please enter the Pairing Port shown in the TV popup.', 'Manual Port Required');
-      btn.innerText = 'Pair & Connect ADB';
-      btn.disabled = false;
-      return;
-    }
     
     try {
       const res = await homebridge.request('/pair-adb', {
@@ -798,7 +777,9 @@
         await homebridge.updatePluginConfig(pluginConfig);
         finishAndRestart();
       } else {
-        document.getElementById('advanced-adb-ports').style.display = 'block';
+        if (res.requireManualPort) {
+          document.getElementById('advanced-adb-ports').style.display = 'block';
+        }
         homebridge.toast.error(res.message || 'ADB Pairing Failed', 'Pairing Error');
       }
     } catch (e) {

@@ -2,7 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.1-beta.12] - 2026-10-06
+## [1.2.1-beta.13] - 2026-10-06
+
+### Added
+- **Server-Side CLI mDNS Port Resolution**: Enhanced the ADB pairing backend with `adb mdns services` scanning to automatically extract pairing & connect ports from TV broadcast without requiring manual user input.
 
 ### Fixed
 - **Settings UI Initialization**: Restored `showStep` and UI step navigation functions in `index.html` to fix modal launch and error handling.
