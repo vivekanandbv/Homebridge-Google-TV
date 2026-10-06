@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.1-beta.7] - 2026-10-05
+## [1.2.1-beta.8] - 2026-10-06
+
+### Fixed
+- **Media Playback State & Volume Bulb Sync**:
+  - Rewrote ADB `dumpsys media_session` parser to be indentation-agnostic across Android 10/11/12/13/14 session stack formats.
+  - Implemented priority scanning across all media sessions to ensure active `PLAYING` (state 3) sessions are detected even when background assistant or system sessions are present.
+  - Fixed media polling lifecycle in `MediaStateManager` to start immediately upon connection and reliably synchronize playback state with the Volume Bulb accessory in Apple Home.
 
 ### Fixed
 - **InputSource Identifier Closure Bug**: Fixed a closure variable capture issue in `setupInputSources` where all inputs returned the final loop ID (causing Apple Home to collapse all configured inputs into the last input e.g. HDMI 4). Each input source now permanently retains its unique identifier, configured name, and visibility states.

@@ -6,9 +6,9 @@ import { EventEmitter } from 'events';
 export type UnifiedPlaybackState = 'PLAYING' | 'PAUSED' | 'BUFFERING' | 'ERROR' | 'UNKNOWN';
 
 export interface TVCapabilities {
-    power: 'AndroidTVRemote' | 'UNSUPPORTED';
-    volume: 'AndroidTVRemote' | 'Cast' | 'UNSUPPORTED';
-    playback: 'Cast' | 'ADB' | 'UNKNOWN';
+  power: 'AndroidTVRemote' | 'UNSUPPORTED';
+  volume: 'AndroidTVRemote' | 'Cast' | 'UNSUPPORTED';
+  playback: 'Cast' | 'ADB' | 'UNKNOWN';
 }
 
 export class MediaStateManager extends EventEmitter {
@@ -25,21 +25,17 @@ export class MediaStateManager extends EventEmitter {
     this.remote = remote;
     this.adb = adb;
         
-    // Listen to Cast events (assuming CastClient emits these)
-    // this.cast.on('media_status', (status) => {
-    //     this.castState = this.mapCastState(status);
-    //     this.emit('state_changed');
-    // });
-        
     if (this.adb) {
       this.adb.on('media_state', (state: ADBMediaState) => {
+        const changed = this.adbState.playbackState !== state.playbackState;
         this.adbState = state;
-        this.emit('state_changed');
+        if (changed) {
+          this.emit('state_changed');
+        }
       });
             
-      if (this.remote.isPowerOn) {
-        this.adb.startPolling(3000);
-      }
+      // Start polling immediately if ADB is configured
+      this.adb.startPolling(3000);
 
       this.remote.on('powered', (powered: boolean) => {
         if (this.adb) {
@@ -52,13 +48,18 @@ export class MediaStateManager extends EventEmitter {
           }
         }
       });
+
+      this.remote.on('ready', () => {
+        if (this.adb) {
+          this.adb.startPolling(3000);
+        }
+      });
     }
   }
     
   public getResolvedPlaybackState(): { state: UnifiedPlaybackState, source: 'Cast' | 'ADB' | 'UNKNOWN' } {
     // 1. Cast has priority IF it is actively playing a cast session
     if (this.castState === 'PLAYING' || this.castState === 'BUFFERING' || this.castState === 'PAUSED') {
-      // Note: A true robust implementation needs to verify there is an active session ID
       return { state: this.castState, source: 'Cast' };
     }
         
@@ -82,9 +83,17 @@ export class MediaStateManager extends EventEmitter {
   public async setPlayPause(play: boolean) {
     const resolution = this.getResolvedPlaybackState();
     if (resolution.source === 'Cast') {
-      // Send cast command
-      // await this.cast.play() / pause()
+      // Send cast command if available
     } else {
+      // Optimistically update adbState so immediate onGet queries return the expected state
+      if (this.adb) {
+        this.adbState = {
+          ...this.adbState,
+          playbackState: play ? 'PLAYING' : 'PAUSED',
+        };
+        this.emit('state_changed');
+      }
+
       // Use Android TV remote media keys
       if (play) {
         await this.remote.sendKey(126); // KEYCODE_MEDIA_PLAY

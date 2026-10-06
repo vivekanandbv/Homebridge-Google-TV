@@ -336,81 +336,131 @@ The plugin will continue without ADB until it becomes available.`,
       } | null = null;
 
       for (const line of lines) {
-        const sessionStartMatch = line.match(/^\s{4}([^\s].*)/);
-        const propertyMatch = line.match(/^\s{6}([^\s].*)/);
+        const trimmed = line.trim();
+        if (!trimmed) {
+          continue;
+        }
 
-        if (sessionStartMatch) {
-          if (currentSession) {
+        if (
+          trimmed.startsWith('Record ') ||
+          /^\d+:\s*Record/.test(trimmed) ||
+          trimmed.startsWith('Sessions Stack') ||
+          (trimmed.startsWith('tag=') && currentSession && (currentSession.pkg || currentSession.state !== 'UNKNOWN'))
+        ) {
+          if (currentSession && (currentSession.pkg || currentSession.state !== 'UNKNOWN')) {
             sessions.push(currentSession);
           }
-
           currentSession = {
             active: false,
             state: 'UNKNOWN',
           };
-        } else if (propertyMatch && currentSession) {
-          const prop = propertyMatch[1];
+        }
 
-          if (prop.startsWith('package=')) {
-            currentSession.pkg = prop.substring(8).trim();
-          } else if (prop.startsWith('active=')) {
-            currentSession.active =
-              prop.substring(7).trim() === 'true';
-          } else if (prop.startsWith('state=PlaybackState')) {
-            currentSession.state = prop;
+        if (!currentSession) {
+          currentSession = {
+            active: false,
+            state: 'UNKNOWN',
+          };
+        }
+
+        if (trimmed.startsWith('package=') || trimmed.startsWith('ownerPackageName=')) {
+          const parts = trimmed.split('=');
+          if (parts.length > 1) {
+            currentSession.pkg = parts[1].trim().split(' ')[0];
+          }
+        } else if (trimmed.startsWith('active=')) {
+          currentSession.active = trimmed.toLowerCase().includes('active=true');
+        } else if (
+          trimmed.includes('state=PlaybackState') ||
+          trimmed.includes('PlaybackState {state=') ||
+          trimmed.startsWith('state=') ||
+          trimmed.startsWith('mPlaybackState=')
+        ) {
+          currentSession.state = trimmed;
+        }
+      }
+
+      if (currentSession && (currentSession.pkg || currentSession.state !== 'UNKNOWN')) {
+        sessions.push(currentSession);
+      }
+
+      const parseState = (stateStr: string): 'PLAYING' | 'PAUSED' | 'BUFFERING' | 'ERROR' | 'UNKNOWN' => {
+        if (!stateStr || stateStr === 'UNKNOWN') {
+          return 'UNKNOWN';
+        }
+        if (
+          stateStr.includes('state=PLAYING') ||
+          /state=3\b/.test(stateStr) ||
+          /state=3,/.test(stateStr) ||
+          stateStr.includes('state=3')
+        ) {
+          return 'PLAYING';
+        }
+        if (
+          stateStr.includes('state=BUFFERING') ||
+          stateStr.includes('state=CONNECTING') ||
+          /state=6\b/.test(stateStr) ||
+          /state=8\b/.test(stateStr)
+        ) {
+          return 'BUFFERING';
+        }
+        if (
+          stateStr.includes('state=PAUSED') ||
+          stateStr.includes('state=STOPPED') ||
+          /state=2\b/.test(stateStr) ||
+          /state=1\b/.test(stateStr)
+        ) {
+          return 'PAUSED';
+        }
+        if (stateStr.includes('state=ERROR') || /state=7\b/.test(stateStr)) {
+          return 'ERROR';
+        }
+        return 'UNKNOWN';
+      };
+
+      for (const s of sessions) {
+        const parsed = parseState(s.state);
+        if (parsed === 'PLAYING') {
+          return {
+            appPackage: s.pkg,
+            playbackState: 'PLAYING',
+          };
+        }
+      }
+
+      for (const s of sessions) {
+        if (s.active) {
+          const parsed = parseState(s.state);
+          if (parsed === 'BUFFERING') {
+            return {
+              appPackage: s.pkg,
+              playbackState: 'BUFFERING',
+            };
           }
         }
       }
 
-      if (currentSession) {
-        sessions.push(currentSession);
-      }
-
-      // Find active session.
-      const activeSession = sessions.find(
-        (s) => s.active && s.state.includes('state='),
-      );
-
-      if (activeSession) {
-        const stateStr = activeSession.state;
-
-        let playbackState:
-          | 'PLAYING'
-          | 'PAUSED'
-          | 'BUFFERING'
-          | 'ERROR'
-          | 'UNKNOWN' = 'UNKNOWN';
-
-        if (
-          stateStr.includes('state=PLAYING') ||
-          stateStr.includes('state=3')
-        ) {
-          playbackState = 'PLAYING';
-        } else if (
-          stateStr.includes('state=PAUSED') ||
-          stateStr.includes('state=2') ||
-          stateStr.includes('state=STOPPED') ||
-          stateStr.includes('state=1')
-        ) {
-          playbackState = 'PAUSED';
-        } else if (
-          stateStr.includes('state=BUFFERING') ||
-          stateStr.includes('state=6') ||
-          stateStr.includes('state=CONNECTING') ||
-          stateStr.includes('state=8')
-        ) {
-          playbackState = 'BUFFERING';
+      for (const s of sessions) {
+        if (s.active) {
+          const parsed = parseState(s.state);
+          if (parsed === 'PAUSED') {
+            return {
+              appPackage: s.pkg,
+              playbackState: 'PAUSED',
+            };
+          }
         }
-
-        // Silent background state parsing
-
-        return {
-          appPackage: activeSession.pkg,
-          playbackState,
-        };
       }
 
-      // Silent background state parsing
+      for (const s of sessions) {
+        const parsed = parseState(s.state);
+        if (parsed !== 'UNKNOWN') {
+          return {
+            appPackage: s.pkg,
+            playbackState: parsed,
+          };
+        }
+      }
 
       return {
         playbackState: 'UNKNOWN',
