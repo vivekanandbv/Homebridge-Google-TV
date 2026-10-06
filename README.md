@@ -77,22 +77,24 @@ Each configured TV exposes **two distinct tiles** in your Apple Home App:
 
 ### Optional ADB Pairing (Enabling Volume / Playback Dimmer Bulb)
 
-To track real-time playback state inside streaming apps (*Netflix*, *Prime Video*, *YouTube*, etc.) and expose the Volume/Playback Dimmer Bulb in Apple Home, enable Developer Options and USB Debugging on your TV:
+To track real-time playback state inside streaming apps (*Netflix*, *Prime Video*, *YouTube*, etc.) and expose the Volume/Playback Dimmer Bulb in Apple Home, enable Wireless Debugging on your TV and pair in Homebridge:
 
-1. **Enable Developer Options on TV**:
+1. **Enable Wireless Debugging on TV**:
    * On your TV, navigate to **Settings** → **System** → **About**.
-   * Scroll down to **Android TV OS build** (or **Build**) and press the **Select** button **7 times** until you see the prompt *"You are now a developer!"*.
-2. **Enable USB Debugging (Network ADB)**:
+   * Scroll down to **Android TV OS build** (or **Build**) and press the **Select** button **7 times** until you see *"You are now a developer!"*.
    * Go back to **Settings** → **System** → **Developer Options**.
-   * Toggle **ON** **USB Debugging** (and **Wireless Debugging** if available on Android 11+).
-3. **Pair with ADB in Homebridge**:
-   * In Homebridge UI → **Homebridge Google TV** Settings, click **Enhance with ADB** and follow the on-screen instructions (or enter your TV's IP and ADB port, default `5555`).
-   * When the *"Allow USB debugging?"* prompt appears on your TV screen, check **"Always allow from this computer"** and select **OK / Allow**.
-4. **Restart Homebridge**:
-   * Save settings and restart Homebridge.
-5. **Add Dimmer Bulb in Apple Home**:
-   * Open your iOS **Home App** → **Add Accessory** → **More options...**, select your **Volume / Playback Dimmer Bulb**, and enter your Homebridge setup PIN.
+   * Toggle **ON** **Wireless Debugging** (and **USB Debugging**).
+   * Click **Pair device with pairing code** (a popup appears showing a **6-Digit Pairing Code**).
+2. **Pair in Homebridge (One-Click Auto Discovery)**:
+   * In Homebridge UI → **Homebridge Google TV** Settings, click **+ Enhance with ADB** (or **(Re-pair)** on the ADB badge).
+   * Homebridge will automatically discover your TV's wireless ports over the network.
+   * Enter the **6-digit code** displayed on your TV screen and click **Pair & Connect ADB**.
+   * *Behind the scenes, Homebridge automatically completes the pairing handshake and activates permanent standard port `5555` so your TV never needs pairing again across reboots.*
+3. **Restart Homebridge & Add to Apple Home**:
+   * Restart Homebridge.
+   * Open Apple **Home App** → **Add Accessory** → **More options...**, select your **Volume / Playback Dimmer Bulb**, and enter your Homebridge setup PIN.
    * *The dimmer reflects playback status (On = Playing, Off = Paused) and volume level (0–100%), allowing automations like dimming lights when playback begins.*
+
 ---
 
 ## Managing TV Input Sources (UI Guide)

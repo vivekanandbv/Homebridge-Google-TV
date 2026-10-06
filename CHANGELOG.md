@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1-beta.11] - 2026-10-06
+
+### Added
+- **Streamlined Single-PIN ADB Pairing**:
+  - Implemented automatic background mDNS discovery of Wireless Debugging pairing & connect ports.
+  - Simplified the Settings UI to a single 6-digit PIN input with auto-focus (tucking manual ports into an optional advanced dropdown).
+  - Automated permanent port `5555` activation upon pairing so the TV stays connected across reboots without re-pairing.
+
 ## [1.2.1-beta.10] - 2026-10-06
 
 ### Fixed
