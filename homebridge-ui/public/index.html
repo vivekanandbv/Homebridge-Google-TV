@@ -296,7 +296,7 @@
             : `<span class="tv-badge action" onclick="triggerRemoteSetup('${d.ip}')">⚠ Pair Remote</span>`;
 
           const adbBadge = d.adbIpPort
-            ? '<span class="tv-badge ok">✓ ADB Connected</span>'
+            ? `<span class="tv-badge ok" style="cursor: pointer;" title="Click to re-pair ADB" onclick="triggerAdbSetup('${d.ip}')">✓ ADB Connected <span style="font-size: 10px; opacity: 0.7;">(Re-pair)</span></span>`
             : `<span class="tv-badge action" onclick="triggerAdbSetup('${d.ip}')">+ Enhance with ADB</span>`;
 
           const enabledInputs = d.inputs || ['Home', 'YouTube', 'Netflix', 'Prime Video'];

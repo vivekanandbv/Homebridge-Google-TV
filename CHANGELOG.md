@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1-beta.9] - 2026-10-06
+
+### Added
+- **Interactive ADB Re-pairing**: Made the `✓ ADB Connected` badge in the Settings UI clickable with an explicit `(Re-pair)` button, allowing users to re-run the ADB pairing wizard whenever TV IP or Wireless Debugging ports reset.
+- **Documentation**: Added comprehensive Developer Options and USB/Wireless Debugging setup instructions to `README.md`.
+
 ## [1.2.1-beta.8] - 2026-10-06
 
 ### Fixed

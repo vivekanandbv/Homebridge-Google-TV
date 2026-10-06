@@ -75,12 +75,24 @@ Each configured TV exposes **two distinct tiles** in your Apple Home App:
 5. Since the TV accessory is an unbridged external accessory, add the TV manually into home app:  
       Open your iOS **Home App** → **Add Accessory** → **More  options...**, select your TV, and enter the Homebridge Setup PIN configured on your Homebridge instance. (You will be able to use the control centre remote now.)
 
-### Optional ADB pairing (to expose volume/playback status as a dimmer bulb in home app) ###
+### Optional ADB Pairing (Enabling Volume / Playback Dimmer Bulb)
 
-6. Click **Enhance with ADB** and follow the onscreen instructions.
-7. Manually restart homebridge.
-8. Open your iOS **Home App** → **Add Accessory** → **More  options...**, select your dimmer bulb exposed as a bridge and enter the Homebridge Setup PIN configured on your Homebridge instance. 
-* The dimmer will reflect the playback status and the volume level of your TV, which you can use for automations, like turning the lights on/off or opening/closing the blinds based on whether the TV is playing or paused. You should also be able to use input sources from the TV accessory to switch between apps now.
+To track real-time playback state inside streaming apps (*Netflix*, *Prime Video*, *YouTube*, etc.) and expose the Volume/Playback Dimmer Bulb in Apple Home, enable Developer Options and USB Debugging on your TV:
+
+1. **Enable Developer Options on TV**:
+   * On your TV, navigate to **Settings** → **System** → **About**.
+   * Scroll down to **Android TV OS build** (or **Build**) and press the **Select** button **7 times** until you see the prompt *"You are now a developer!"*.
+2. **Enable USB Debugging (Network ADB)**:
+   * Go back to **Settings** → **System** → **Developer Options**.
+   * Toggle **ON** **USB Debugging** (and **Wireless Debugging** if available on Android 11+).
+3. **Pair with ADB in Homebridge**:
+   * In Homebridge UI → **Homebridge Google TV** Settings, click **Enhance with ADB** and follow the on-screen instructions (or enter your TV's IP and ADB port, default `5555`).
+   * When the *"Allow USB debugging?"* prompt appears on your TV screen, check **"Always allow from this computer"** and select **OK / Allow**.
+4. **Restart Homebridge**:
+   * Save settings and restart Homebridge.
+5. **Add Dimmer Bulb in Apple Home**:
+   * Open your iOS **Home App** → **Add Accessory** → **More options...**, select your **Volume / Playback Dimmer Bulb**, and enter your Homebridge setup PIN.
+   * *The dimmer reflects playback status (On = Playing, Off = Paused) and volume level (0–100%), allowing automations like dimming lights when playback begins.*
 ---
 
 ## Managing TV Input Sources (UI Guide)
