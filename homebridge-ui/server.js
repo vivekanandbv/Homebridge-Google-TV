@@ -252,7 +252,10 @@ class PluginUiServer extends HomebridgePluginUiServer {
   }
   
   async pairAdb(payload) {
-    const { endpoint, code } = payload;
+    const { ip, endpoint, pairingEndpoint, connectEndpoint, code } = payload;
+    const pairTarget = pairingEndpoint || endpoint;
+    const connectTarget = connectEndpoint || pairingEndpoint || endpoint;
+
     try {
       const adb = await getAdbPath();
       if (!adb) {
@@ -261,11 +264,42 @@ class PluginUiServer extends HomebridgePluginUiServer {
           message: 'ADB is not installed on this system or container. You can skip ADB and continue setup.', 
         };
       }
-      const { stdout, stderr } = await execAsync(`"${adb}" pair ${endpoint} ${code}`);
-      if (stdout.includes('Successfully paired')) {
-        return { success: true, message: stdout };
+
+      // 1. Perform TLS PIN Pairing
+      const { stdout: pairOut, stderr: pairErr } = await execAsync(`"${adb}" pair ${pairTarget} ${code}`, { timeout: 12000 });
+      if (!pairOut.includes('Successfully paired')) {
+        return { success: false, message: pairOut || pairErr || 'ADB Pairing rejected. Check PIN.' };
       }
-      return { success: false, message: stdout || stderr };
+
+      // 2. Connect to the TV's wireless connect port
+      let activeEndpoint = connectTarget;
+      if (connectTarget) {
+        try {
+          await execAsync(`"${adb}" connect ${connectTarget}`, { timeout: 8000 });
+        } catch { /* ignore */ }
+      }
+
+      // 3. Attempt to unlock permanent port 5555 via tcpip
+      const targetHost = ip || (pairTarget ? pairTarget.split(':')[0] : null);
+      if (targetHost) {
+        try {
+          const targetId = connectTarget || pairTarget;
+          await execAsync(`"${adb}" -s ${targetId} tcpip 5555`, { timeout: 4000 });
+          await new Promise((r) => setTimeout(r, 1000));
+          const { stdout: c5555 } = await execAsync(`"${adb}" connect ${targetHost}:5555`, { timeout: 6000 });
+          if (c5555.includes('connected to') || c5555.includes('already connected')) {
+            activeEndpoint = `${targetHost}:5555`;
+          }
+        } catch {
+          // If tcpip 5555 is not permitted by OEM, keep connectTarget
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Successfully paired and connected ADB!',
+        activeEndpoint: activeEndpoint || connectTarget,
+      };
     } catch (e) {
       return { success: false, message: e.message };
     }

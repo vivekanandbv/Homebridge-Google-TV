@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.1-beta.9] - 2026-10-06
+## [1.2.1-beta.10] - 2026-10-06
+
+### Fixed
+- **Wireless Debugging Dual-Port Handshake & Automatic Port 5555 Activation**:
+  - Updated the Settings UI pairing wizard to accept both the Main Connect Port (from the main Wireless Debugging screen) and the Pairing Port & PIN (from the pairing modal).
+  - Implemented automatic `adb tcpip 5555` activation during pairing to unlock the standard permanent ADB port across reboots.
+  - Enhanced `ADBClient` connection logic with smart fallback and active target resolution.
 
 ### Added
 - **Interactive ADB Re-pairing**: Made the `✓ ADB Connected` badge in the Settings UI clickable with an explicit `(Re-pair)` button, allowing users to re-run the ADB pairing wizard whenever TV IP or Wireless Debugging ports reset.

@@ -156,28 +156,31 @@
 
 <!-- Step: Pair ADB -->
 <div id="step-adb" class="step">
-  <h3 class="mb-3">Enhance with ADB (Optional)</h3>
-  <p>ADB enables monitoring native apps like Netflix. To enable:</p>
-  <ol>
-    <li>On your TV, go to <b>Settings → System → About</b></li>
-    <li>Tap <b>"Android TV OS build"</b> 7 times to unlock Developer Options</li>
-    <li>Go back to <b>Settings → System → Developer Options</b></li>
-    <li>Enable <b>Wireless Debugging</b></li>
-    <li>Tap <b>"Pair device with pairing code"</b></li>
-    <li>Enter the port and 6-digit code below:</li>
+  <h3 class="mb-3">Enhance with ADB (Real-Time Playback Sync)</h3>
+  <p style="font-size: 13px; opacity: 0.85; margin-bottom: 12px;">Enables real-time playback state tracking (YouTube, Netflix, Prime Video, etc.) and the HomeKit Volume/Playback Dimmer Bulb.</p>
+  <ol style="font-size: 13px; padding-left: 18px; margin-bottom: 16px;">
+    <li>On your TV, open <b>Settings → System → Developer Options</b>.</li>
+    <li>Turn <b>ON</b> <b>Wireless Debugging</b> (and USB Debugging).</li>
+    <li>Note the <b>Main Port</b> displayed under <i>IP address & Port</i> on the Wireless Debugging screen.</li>
+    <li>Tap <b>Pair device with pairing code</b> (displays the <i>Pairing Port</i> & <i>6-digit PIN</i>).</li>
   </ol>
   
+  <div class="form-group" style="margin-bottom: 12px;">
+    <label for="adb-connect-port" style="font-size: 13px; opacity: 0.9; margin-bottom: 4px; display: block; font-weight: 500;">Main Port (under Wireless Debugging on TV):</label>
+    <input type="text" class="form-control" id="adb-connect-port" placeholder="e.g. 41923 (or 5555)" />
+  </div>
+
   <div class="form-group" id="manual-port-group" style="margin-bottom: 12px;">
-    <label for="adb-port" style="font-size: 14px; opacity: 0.8; margin-bottom: 4px;">Port (displayed on TV next to IP):</label>
-    <input type="text" class="form-control" id="adb-port" placeholder="e.g. 38421 or 41923" />
+    <label for="adb-port" style="font-size: 13px; opacity: 0.9; margin-bottom: 4px; display: block; font-weight: 500;">Pairing Port (inside Pair Device popup on TV):</label>
+    <input type="text" class="form-control" id="adb-port" placeholder="e.g. 38421" />
   </div>
 
   <div class="form-group">
-    <label for="adb-pin" style="font-size: 14px; opacity: 0.8; margin-bottom: 4px;">Pairing Code:</label>
+    <label for="adb-pin" style="font-size: 13px; opacity: 0.9; margin-bottom: 4px; display: block; font-weight: 500;">6-Digit Pairing Code:</label>
     <input type="text" class="form-control" id="adb-pin" placeholder="6-digit pairing code" maxlength="6" />
   </div>
   <div style="display: flex; gap: 8px; margin-top: 16px;">
-    <button class="btn btn-primary" onclick="pairAdb()" id="btn-pair-adb" style="flex: 1.5;">Pair ADB</button>
+    <button class="btn btn-primary" onclick="pairAdb()" id="btn-pair-adb" style="flex: 1.5;">Pair & Connect ADB</button>
     <button class="btn btn-default" onclick="finishAndRestart()" style="flex: 1;">Skip ADB & Restart</button>
   </div>
 </div>
@@ -576,21 +579,30 @@
       currentDevice = { ip: ip, name: 'TV' };
       
       // Clear inputs
-      document.getElementById('adb-port').value = '';
-      document.getElementById('adb-pin').value = '';
+      if (document.getElementById('adb-connect-port')) document.getElementById('adb-connect-port').value = '';
+      if (document.getElementById('adb-port')) document.getElementById('adb-port').value = '';
+      if (document.getElementById('adb-pin')) document.getElementById('adb-pin').value = '';
       
       // Go directly to the ADB step without loading screen
       showStep('step-adb');
       
-      // Perform background discovery to pre-fill the port if found
+      // Perform background discovery to pre-fill the ports if found
       homebridge.request('/discover').then(devices => {
           const found = devices.find(x => x.ip === ip);
-          if (found && found.adbPairingEndpoint) {
-              currentDevice.adbPairingEndpoint = found.adbPairingEndpoint;
-              currentDevice.adbConnectEndpoint = found.adbConnectEndpoint;
-              const portMatch = found.adbPairingEndpoint.match(/:(\d+)$/);
-              if (portMatch) {
-                  document.getElementById('adb-port').value = portMatch[1];
+          if (found) {
+              if (found.adbConnectEndpoint) {
+                  currentDevice.adbConnectEndpoint = found.adbConnectEndpoint;
+                  const cPort = found.adbConnectEndpoint.match(/:(\d+)$/);
+                  if (cPort && document.getElementById('adb-connect-port')) {
+                      document.getElementById('adb-connect-port').value = cPort[1];
+                  }
+              }
+              if (found.adbPairingEndpoint) {
+                  currentDevice.adbPairingEndpoint = found.adbPairingEndpoint;
+                  const pPort = found.adbPairingEndpoint.match(/:(\d+)$/);
+                  if (pPort && document.getElementById('adb-port')) {
+                      document.getElementById('adb-port').value = pPort[1];
+                  }
               }
           }
       }).catch(() => { /* ignore */ });
@@ -724,41 +736,46 @@
   }
 
   async function pairAdb() {
-    const pin = document.getElementById('adb-pin').value;
-    if (!pin) return;
-    
-    let endpoint = currentDevice.adbPairingEndpoint;
-    if (!endpoint) {
-        const port = document.getElementById('adb-port').value;
-        if (port) {
-            endpoint = `${currentDevice.ip}:${port}`;
-        }
+    const pin = document.getElementById('adb-pin').value ? document.getElementById('adb-pin').value.trim() : '';
+    if (!pin) {
+      homebridge.toast.error('Please enter the 6-digit pairing code displayed on your TV.');
+      return;
     }
     
-    if (!endpoint) {
-      homebridge.toast.error('ADB pairing endpoint not found. Please enter the Port displayed on your TV.');
-      document.getElementById('manual-port-group').style.display = 'block';
+    const pairingPort = document.getElementById('adb-port').value ? document.getElementById('adb-port').value.trim() : '';
+    const connectPort = document.getElementById('adb-connect-port').value ? document.getElementById('adb-connect-port').value.trim() : '';
+    
+    let pairingEndpoint = pairingPort ? `${currentDevice.ip}:${pairingPort}` : currentDevice.adbPairingEndpoint;
+    let connectEndpoint = connectPort ? `${currentDevice.ip}:${connectPort}` : (currentDevice.adbConnectEndpoint || pairingEndpoint);
+    
+    if (!pairingEndpoint) {
+      homebridge.toast.error('Please enter the Pairing Port displayed inside the "Pair device" popup on your TV.');
       return;
     }
     
     const btn = document.getElementById('btn-pair-adb');
-    btn.innerText = 'Pairing...';
+    btn.innerText = 'Pairing & Connecting...';
     btn.disabled = true;
     try {
-      const res = await homebridge.request('/pair-adb', { endpoint: endpoint, code: pin });
+      const res = await homebridge.request('/pair-adb', {
+        ip: currentDevice.ip,
+        pairingEndpoint: pairingEndpoint,
+        connectEndpoint: connectEndpoint,
+        code: pin
+      });
       if (res.success) {
-        homebridge.toast.success('ADB Paired!');
+        homebridge.toast.success('ADB Paired & Connected Successfully!');
         let devConf = allDevices.find(d => d.ip === currentDevice.ip);
-        devConf.adbIpPort = currentDevice.adbConnectEndpoint || `${currentDevice.ip}:5555`;
+        devConf.adbIpPort = res.activeEndpoint || connectEndpoint || `${currentDevice.ip}:5555`;
         await homebridge.updatePluginConfig(pluginConfig);
         finishAndRestart();
       } else {
-        homebridge.toast.error(res.message, 'ADB Pairing Failed');
+        homebridge.toast.error(res.message || 'ADB Pairing Failed', 'Pairing Error');
       }
     } catch (e) {
       homebridge.toast.error(e.message, 'Error');
     }
-    btn.innerText = 'Pair ADB';
+    btn.innerText = 'Pair & Connect ADB';
     btn.disabled = false;
   }
 

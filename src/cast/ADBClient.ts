@@ -220,8 +220,8 @@ The plugin will continue without ADB until it becomes available.`,
 
   async connect(): Promise<boolean> {
     const now = Date.now();
-    if (now - this.lastConnectAttemptTime < 30000) {
-      return false; // Cooldown for 30 seconds to prevent ADB daemon lockup
+    if (now - this.lastConnectAttemptTime < 15000) {
+      return false; // Cooldown for 15 seconds
     }
     this.lastConnectAttemptTime = now;
 
@@ -236,6 +236,7 @@ The plugin will continue without ADB until it becomes available.`,
 
       this.log(`Connecting to ${this.ip}...`);
 
+      // 1. Check if device is already connected on any port
       this.targetIdentifier = await this.findTargetIdentifier();
 
       if (this.targetIdentifier) {
@@ -246,32 +247,50 @@ The plugin will continue without ADB until it becomes available.`,
         return true;
       }
 
-      this.log(`Falling back to manual adb connect ${this.endpoint}`);
+      // 2. Try configured endpoint
+      this.log(`Attempting adb connect ${this.endpoint}`);
 
-      const { stdout } = await execAsync(
-        `"${adbPath}" connect ${this.endpoint}`,
-        { timeout: 8000 },
-      );
+      try {
+        const { stdout } = await execAsync(
+          `"${adbPath}" connect ${this.endpoint}`,
+          { timeout: 8000 },
+        );
 
-      if (
-        stdout.includes('connected to') ||
-        stdout.includes('already connected')
-      ) {
-        this.targetIdentifier = this.endpoint;
-        this.isConnected = true;
-        await this.configureNetworkStandby();
-        this.emit('connected');
-        return true;
+        if (
+          stdout.includes('connected to') ||
+          stdout.includes('already connected')
+        ) {
+          this.targetIdentifier = this.endpoint;
+          this.isConnected = true;
+          await this.configureNetworkStandby();
+          this.emit('connected');
+          return true;
+        }
+      } catch { /* ignore and try fallback */ }
+
+      // 3. Fallback: If configured endpoint was not port 5555, attempt standard 5555
+      if (this.endpoint !== `${this.ip}:5555`) {
+        this.log(`Attempting fallback adb connect ${this.ip}:5555`);
+        try {
+          const { stdout: fbOut } = await execAsync(
+            `"${adbPath}" connect ${this.ip}:5555`,
+            { timeout: 6000 },
+          );
+          if (
+            fbOut.includes('connected to') ||
+            fbOut.includes('already connected')
+          ) {
+            this.targetIdentifier = `${this.ip}:5555`;
+            this.isConnected = true;
+            await this.configureNetworkStandby();
+            this.emit('connected');
+            return true;
+          }
+        } catch { /* ignore */ }
       }
 
-      if (
-        stdout.includes('failed to authenticate') ||
-        stdout.includes('Connection refused')
-      ) {
-        this.isConnected = false;
-        this.emit('unauthorized');
-        return false;
-      }
+      this.isConnected = false;
+      return false;
     } catch (e: any) {
       this.isConnected = false;
       this.log(`Connect error: ${e.message}`, true);
