@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.2.1-beta.14] - 2026-10-06
+## [1.2.1] - 2026-10-13
 
 ### Added
 - **Apple Home Icon / Category Selection**:
@@ -30,12 +30,12 @@ All notable changes to this project will be documented in this file.
   - Implemented session boundary detection (`ownerPid=`, `userId`, `package=`) to prevent inactive background entries (Apple TV, Bluetooth, Netflix) from overwriting earlier active playing sessions (e.g., Prime Video, YouTube).
   - Prioritized active `PLAYING` (state 3) sessions across all media session stacks.
   - Removed unintentional polling pauses in `MediaStateManager`, keeping ADB polling active so the Volume / Playback Dimmer Lightbulb in Apple Home accurately and immediately synchronizes when playing or pausing via the physical TV remote.
-- **InputSource Identifier Closure Bug**:
-  - Fixed a closure variable capture issue in `setupInputSources` where all inputs returned the final loop ID (causing Apple Home to collapse all configured inputs into the last input e.g. HDMI 4). Each input source now permanently retains its unique identifier, configured name, and visibility states.
-- **App Switching over Android TV Remote Protocol**:
+- **Fast App Switching over Encrypted Remote Protocol**:
   - Added native `sendAppLink` support to launch streaming apps (YouTube, Netflix, Prime Video, Disney+, etc.) directly over the encrypted Remote Protocol v2 TLS connection without requiring ADB.
   - Added case-insensitive and whitespace-tolerant resolution for all HDMI and hardware inputs (`HDMI 1`, `HDMI1`, `HDMI-1`, `Composite`, `Component`, etc.).
   - Bound explicit HAP getters (`ConfiguredName`, `Name`, `Identifier`, `IsConfigured`, `CurrentVisibilityState`, `TargetVisibilityState`) and dynamic identifier mapping for all configured inputs to ensure full Apple HomeKit compliance.
+- **Fixed Input Source Collapse Bug in Apple Home**:
+  - Fixed a closure variable capture issue in `setupInputSources` where all inputs returned the final loop ID (causing Apple Home to collapse all configured inputs into the last input e.g. HDMI 4). Each input source now permanently retains its unique identifier, configured name, and visibility states.
 
 ## [1.1.4] - 2026-09-22
 
