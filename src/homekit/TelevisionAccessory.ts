@@ -105,6 +105,7 @@ export class TelevisionAccessory {
   private lastLoggedPlaybackState = '';
   private lastPlaybackLogTime = 0;
   private configuredInputList: ConfiguredInputItem[] = [];
+  private deviceConfig: any = {};
 
   constructor(
     private readonly platform: ADBCastPlatform,
@@ -113,10 +114,18 @@ export class TelevisionAccessory {
     ip: string,
   ) {
     const devices = this.platform.config.devices || [];
-    const deviceConfig = devices.find((d: any) => d.ip === ip) || {};
+    const currentContextId = this.tvAccessory.context.device?.id;
+    this.deviceConfig = devices.find((d: any) => {
+      const idMatch = d.id && currentContextId && (
+        d.id === currentContextId ||
+        currentContextId.endsWith(d.id) ||
+        d.id.endsWith(currentContextId)
+      );
+      return idMatch || d.ip === ip || d.name === this.tvAccessory.context.device?.name;
+    }) || {};
     
-    const cert = deviceConfig.cert || this.platform.config.cert;
-    const adbIpPort = deviceConfig.adbIpPort || this.platform.config.adbIpPort;
+    const cert = this.deviceConfig.cert || this.platform.config.cert;
+    const adbIpPort = this.deviceConfig.adbIpPort || this.platform.config.adbIpPort;
 
     this.castClient = new CastClient(ip);
     this.androidTVClient = new AndroidTVClient(ip, this.platform.config.pairingCode, cert);
@@ -359,10 +368,8 @@ export class TelevisionAccessory {
   }
 
   private setupInputSources() {
-    const devices = this.platform.config.devices || [];
-    const deviceConfig = devices.find((d: any) => d.ip === this.tvAccessory.context.device.ip) || {};
-    const enabledInputs = deviceConfig.inputs || ['Home', 'YouTube', 'Netflix', 'Prime Video'];
-    const customApps = deviceConfig.customApps || [];
+    const enabledInputs = this.deviceConfig.inputs || ['Home', 'YouTube', 'Netflix', 'Prime Video'];
+    const customApps = this.deviceConfig.customApps || [];
 
     const existingInputs = this.tvAccessory.services.filter(s => s.UUID === this.platform.Service.InputSource.UUID);
     for (const s of existingInputs) {
@@ -574,9 +581,7 @@ export class TelevisionAccessory {
       this.platform.log.error('CastClient connect failed:', e);
     }
     
-    const devices = this.platform.config.devices || [];
-    const deviceConfig = devices.find((d: any) => d.ip === this.tvAccessory.context.device.ip) || {};
-    const cert = deviceConfig.cert || this.platform.config.cert;
+    const cert = this.deviceConfig.cert || this.platform.config.cert;
 
     if (cert) {
       try {
@@ -656,6 +661,15 @@ export class TelevisionAccessory {
       this.bulbAccessory.context.device.ip = newIp;
     }
 
+    // Keep in-memory device configuration in sync
+    if (this.deviceConfig) {
+      this.deviceConfig.ip = newIp;
+      if (this.deviceConfig.adbIpPort) {
+        const port = newAdbPort || parseInt(this.deviceConfig.adbIpPort.split(':')[1]) || 5555;
+        this.deviceConfig.adbIpPort = `${newIp}:${port}`;
+      }
+    }
+
     // Update Clients
     this.castClient.ip = newIp;
     this.androidTVClient.updateIp(newIp);
@@ -664,7 +678,10 @@ export class TelevisionAccessory {
       if (newAdbPort) {
         this.adbClient.port = newAdbPort;
         this.adbClient.endpoint = `${newIp}:${newAdbPort}`;
+      } else {
+        this.adbClient.endpoint = `${newIp}:${this.adbClient.port}`;
       }
+      this.adbClient.targetIdentifier = null;
     }
 
     // Try reconnecting

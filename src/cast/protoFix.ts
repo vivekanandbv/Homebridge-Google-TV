@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createRequire } from 'module';
 
 export function applyProtoFix(): void {
@@ -36,6 +37,18 @@ export function applyProtoFix(): void {
     const require = createRequire(import.meta.url);
     const rmModule = require('androidtv-remote/dist/remote/RemoteManager.js');
     if (rmModule && rmModule.RemoteManager) {
+      const origStart = rmModule.RemoteManager.prototype.start;
+      if (origStart) {
+        rmModule.RemoteManager.prototype.start = function (this: any, ...args: unknown[]) {
+          return origStart.apply(this, args).then((res: unknown) => {
+            if (this.client) {
+              this.client.setTimeout(0);
+              this.client.setKeepAlive(true, 15000);
+            }
+            return res;
+          });
+        };
+      }
       const origEmit = rmModule.RemoteManager.prototype.emit;
       rmModule.RemoteManager.prototype.emit = function (event: string, ...args: unknown[]) {
         if (event === 'error' && this.listenerCount('error') === 0) {

@@ -64,7 +64,15 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
       // 4. Listen for mDNS updates ONLY for configured devices (do not auto-add random LAN devices)
       this.discovery.on('device_updated', this.onDeviceUpdated.bind(this));
       this.discovery.on('device_discovered', (discovered: DiscoveredDevice) => {
-        const match = devices.find((d: any) => d.ip === discovered.ip || (d.id && d.id === discovered.id));
+        const match = devices.find((d: any) => {
+          if (d.ip === discovered.ip) {
+            return true;
+          }
+          if (d.id && discovered.id) {
+            return d.id === discovered.id || discovered.id.endsWith(d.id) || d.id.endsWith(discovered.id);
+          }
+          return false;
+        });
         if (match) {
           this.onDeviceUpdated(discovered);
         } else {
@@ -152,8 +160,16 @@ export class ADBCastPlatform implements DynamicPlatformPlugin {
   onDeviceUpdated(device: DiscoveredDevice) {
     this.log.info(`[Platform] Device updated via mDNS: ${device.name} (IP: ${device.ip}, ADB Port: ${device.adbPort || 'N/A'})`);
     
-    // Find if we have an active TelevisionAccessory for this device ID or IP
-    const tvAcc = this.tvAccessories.get(device.id) || Array.from(this.tvAccessories.values()).find(acc => acc.getPreviousIp() === device.ip);
+    // Find if we have an active TelevisionAccessory for this device ID, suffix/prefix match, or IP
+    let tvAcc = this.tvAccessories.get(device.id);
+    if (!tvAcc) {
+      for (const [id, acc] of this.tvAccessories.entries()) {
+        if (id === device.id || device.id.endsWith(id) || id.endsWith(device.id) || acc.getPreviousIp() === device.ip) {
+          tvAcc = acc;
+          break;
+        }
+      }
+    }
     if (tvAcc) {
       tvAcc.updateIpAndPort(device.ip, device.adbPort);
     }

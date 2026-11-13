@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.2] - 2026-11-13
+
+### Fixed
+- **Dynamic IP Auto-Recovery & Self-Healing**:
+  - Implemented bidirectional partial and suffix/prefix ID matching in mDNS discovery (`src/platform.ts`), ensuring reliable device matching when truncated or variable-length mDNS identifiers are stored in configuration.
+  - Decoupled TV accessory device configuration and pairing certificate lookup from transient IP addresses, ensuring that pairing keys (`cert`) and ADB connection settings survive router DHCP reassignment and house power outages without requiring manual re-pairing.
+  - Synchronized in-memory ADB endpoint and target identifiers upon dynamic IP updates (`updateIpAndPort`) even when dynamic ADB ports are omitted in mDNS broadcasts.
+- **Android TV Remote Socket Keep-Alive**:
+  - Configured TLS socket keep-alive (`setKeepAlive(true, 15000)`) and disabled socket timeouts (`setTimeout(0)`) in `RemoteManager` prototype patch (`src/cast/protoFix.ts`) to maintain persistent connections and prevent idle disconnections.
+
 ## [1.2.1] - 2026-10-13
 
 ### Added
